@@ -5,6 +5,8 @@ image: Visual Studio 2019
 cache: c:\Tools\vcpkg\installed\
 
 environment:
+  BASH: C:\msys64\usr\bin\bash
+  CHERE_INVOKING: yes
   VCPKG_ROOT: c:\Tools\vcpkg
 
 install:
@@ -13,6 +15,7 @@ install:
 - mkdir build64
 
 - choco install --timeout 600 -y imagemagick
+- '%BASH% -l msys2\install.sh'
 - refreshenv
 
 - cd %VCPKG_ROOT%
@@ -20,6 +23,14 @@ install:
 
 build_script:
 - set CTEST_OUTPUT_ON_FAILURE=1
+- cd %APPVEYOR_BUILD_FOLDER%
+- '%BASH% -lc "autoreconf -i"'
+
+- set MSYSTEM=MINGW32
+- '%BASH% -l msys2\build.sh buildmingw32'
+
+- set MSYSTEM=UCRT64
+- '%BASH% -l msys2\build.sh builducrt64'
 
 - cd %APPVEYOR_BUILD_FOLDER%\build64
 - cmake -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake -A x64 -DVCPKG_TARGET_TRIPLET=x64-windows-static ..
@@ -43,6 +54,12 @@ after_build:
 - 7z a vdagent-win-x86.zip Release\*
 
 artifacts:
+- path: buildmingw32/spice-vdagent-x86-*.msi
+  name: VdAgentWin-mingw32
+
+- path: builducrt64/spice-vdagent-x64-*.msi
+  name: VdAgentWin-ucrt64
+
 - path: build64/vdagent-win-x64.zip
   name: VdAgentWin-x64
 
