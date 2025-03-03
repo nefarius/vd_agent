@@ -35,7 +35,7 @@ fi
 
 compare_images() {
     DIFF=$($MAGICK compare -metric AE $1 $2 - 2>&1 > /dev/null || true)
-    if [ "$DIFF" != "0 (0)" && "$DIFF" != "0" ]; then
+    if [ "$DIFF" != "0 (0)" -a "$DIFF" != "0" ]; then
         error "Images $1 and $2 are too different, diff $DIFF"
     fi
 }
