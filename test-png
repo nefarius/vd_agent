@@ -28,7 +28,7 @@ if [ "x`uname -s`" != xLinux ]; then
 fi
 
 # MSVC build put executables under <Configuration> directory
-IMAGETEST=imagetest.exe
+IMAGETEST=./imagetest.exe
 if [ -e ./Release/imagetest.exe ]; then
     IMAGETEST=./Release/imagetest.exe
 fi
