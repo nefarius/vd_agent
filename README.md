@@ -39,8 +39,10 @@ Pinned build-time submodules (do not bump casually):
 | `spice-common` | `05c0c26839e88e6d0cc5452f49c40e38543c8f97` | https://gitlab.freedesktop.org/spice/spice-common |
 
 Submodule URLs use HTTPS. MSI upgrades keep the historical WiX `UpgradeCode`
-(`7eb9b146-db04-42d7-a8ba-71fc8ced7eed`) so this installer can replace an
-older Spice agent install.
+(`7eb9b146-db04-42d7-a8ba-71fc8ced7eed`). Related products are removed after
+`InstallInitialize` so files and the `spice-agent` service are installed
+afterward. The x64 installer still only ships `vdagent.exe` and
+`vdservice.exe` into `C:\Program Files\SPICE agent\bin`.
 
 ## Clone
 
@@ -83,7 +85,8 @@ bash msys2/package.sh builducrt64
 ```
 
 `install.sh` pulls `autotools`, `autoconf-archive`, the UCRT64 toolchain,
-static-capable `libpng`/`zlib`, `msitools` (`wixl`), and ImageMagick (tests).
+`msitools` (`wixl`), and ImageMagick (tests). PNG clipboard conversion uses
+the Windows Imaging Component that ships with Windows Vista and later.
 
 `build.sh` configures, compiles `vdagent.exe` / `vdservice.exe`, and runs
 `test-png`, `test-log`, and `test-shell`. `package.sh` then invokes
@@ -95,7 +98,11 @@ builducrt64/spice-vdagent-x64-<version>.msi
 
 Version strings come from `git describe` via
 [`build-aux/git-version-gen`](build-aux/git-version-gen). Release tags must
-look like `v0.10.1` so Windows/MSI product versions stay numeric.
+look like `v0.10.1` so Windows/MSI product versions stay numeric. Untagged
+builds add the commit count since the last tag to the MSI product version so
+they upgrade an existing same-tag install (for example `v0.10.0` plus 83
+commits becomes `0.10.83`). Configure fails if that count plus `--with-buildid`
+reaches 256, because that would collide with the next micro version.
 
 To sign a local build, sign the two executables **before** `package.sh`, then
 sign the MSI.
@@ -104,10 +111,7 @@ sign the MSI.
 
 ```powershell
 git submodule update --init --recursive
-vcpkg install libpng:x64-windows-static
-cmake -S . -B build64 `
-  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
-  -A x64 -DVCPKG_TARGET_TRIPLET=x64-windows-static
+cmake -S . -B build64 -A x64
 cmake --build build64 --config Release
 cmake --build build64 --config Release --target check
 ```

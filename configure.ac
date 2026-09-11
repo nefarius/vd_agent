@@ -22,18 +22,57 @@ if test "x$with_buildid" != x; then
   AC_SUBST([BUILDID], "-$with_buildid")
 fi
 
-major=`echo $PACKAGE_VERSION | cut -d. -f1`
-minor=`echo $PACKAGE_VERSION | cut -d. -f2`
-micro=`echo $PACKAGE_VERSION | cut -d. -f3`
-buildid=`echo $with_buildid | cut -d. -f1`
-if test "x$buildid" = x; then
-  buildid=0
+# git-version-gen emits 0.10.1 or 0.10.0.83-abcde (commits since the tag).
+# MSI ProductVersion is major.minor.build (each 0-65535). Encode
+# build = micro * 256 + distance + buildid so untagged 0.10.0.N upgrades
+# 0.10.0. distance+buildid must stay below 256 or it collides with the
+# next micro (0.10.0 + 256 commits == tagged 0.10.1).
+major=`echo "$PACKAGE_VERSION" | cut -d. -f1`
+minor=`echo "$PACKAGE_VERSION" | cut -d. -f2`
+micro=`echo "$PACKAGE_VERSION" | cut -d. -f3 | cut -d- -f1`
+distance=`echo "$PACKAGE_VERSION" | cut -d. -f4 | cut -d- -f1`
+case $major in ''|*[!0-9]*)
+  AC_MSG_ERROR([PACKAGE_VERSION "$PACKAGE_VERSION" has a non-numeric major])
+  ;;
+esac
+case $minor in ''|*[!0-9]*)
+  AC_MSG_ERROR([PACKAGE_VERSION "$PACKAGE_VERSION" has a non-numeric minor])
+  ;;
+esac
+case $micro in ''|*[!0-9]*)
+  AC_MSG_ERROR([PACKAGE_VERSION "$PACKAGE_VERSION" has a non-numeric micro])
+  ;;
+esac
+if test "x$distance" = x; then
+  distance=0
 fi
-build=`expr $micro \* 256 + $buildid`
+case $distance in *[!0-9]*)
+  AC_MSG_ERROR([PACKAGE_VERSION "$PACKAGE_VERSION" has a non-numeric commit distance])
+  ;;
+esac
+if test "x$with_buildid" = x || test "x$with_buildid" = xyes || test "x$with_buildid" = xno; then
+  buildid=0
+else
+  buildid=`echo "$with_buildid" | cut -d. -f1`
+  case $buildid in ''|*[!0-9]*)
+    AC_MSG_ERROR([--with-buildid must be a non-negative integer, not "$with_buildid"])
+    ;;
+  esac
+fi
+if test "$major" -gt 65535 || test "$minor" -gt 65535; then
+  AC_MSG_ERROR([MSI product version major/minor must be 0-65535 (got $major.$minor)])
+fi
+slot=`expr $distance + $buildid`
+if test "$slot" -ge 256; then
+  AC_MSG_ERROR([commit distance $distance plus buildid $buildid collides with the next micro increment (need distance+buildid < 256)])
+fi
+build=`expr $micro \* 256 + $slot`
+if test "$build" -gt 65535; then
+  AC_MSG_ERROR([MSI product version build $build exceeds 65535])
+fi
 WINDOWS_PRODUCTVERSION="$major.$minor.$build"
 AC_SUBST([WINDOWS_PRODUCTVERSION])
-microdigit=`echo $micro | cut -d- -f1`
-RC_PRODUCTVERSION="$major, $minor, $microdigit, 0"
+RC_PRODUCTVERSION="$major, $minor, $micro, $distance"
 AC_DEFINE_UNQUOTED([RC_PRODUCTVERSION_STR], "$RC_PRODUCTVERSION", [Resource product version])
 AC_DEFINE_UNQUOTED([RC_PRODUCTVERSION], [$RC_PRODUCTVERSION], [Resource product version])
 BUILD_YEAR=`date +%Y`
@@ -109,28 +148,6 @@ ACX_SET_VAR(CFLAGS, "$CFLAGS -Wall",
       printf("hello");
       return 0
     ]])], [], AC_MSG_ERROR([some base static library (possibly pthread) not found]))
-  )
-)
-
-PKG_CHECK_MODULES_STATIC(ZLIB, [zlib])
-ACX_SET_VAR(CFLAGS, "$CFLAGS $ZLIB_CFLAGS -Wall",
-  ACX_SET_VAR(LDFLAGS, "$LDFLAGS -static",
-    ACX_SET_VAR(LIBS, "$LIBS $ZLIB_LIBS",
-      AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <zlib.h>]], [[
-        return !!zlibVersion()
-      ]])], [], AC_MSG_ERROR([static zlib not found]))
-    )
-  )
-)
-
-PKG_CHECK_MODULES_STATIC(LIBPNG, [libpng])
-ACX_SET_VAR(CFLAGS, "$CFLAGS $LIBPNG_CFLAGS -Wall",
-  ACX_SET_VAR(LDFLAGS, "$LDFLAGS -static",
-    ACX_SET_VAR(LIBS, "$LIBS $LIBPNG_LIBS",
-      AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <png.h>]], [[
-        return !!png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL)
-      ]])], [], AC_MSG_ERROR([static libpng not found]))
-    )
   )
 )
 

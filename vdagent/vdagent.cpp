@@ -1290,7 +1290,7 @@ bool VDAgent::handle_clipboard_request(const VDAgentClipboardRequest* clipboard_
     uint32_t msg_size;
     UINT format;
     HANDLE clip_data;
-    uint8_t* new_data = NULL;
+    void* new_data = NULL;
     long new_size = 0;
     size_t len = 0;
     VDAgentClipboard* clipboard = NULL;
@@ -1320,7 +1320,7 @@ bool VDAgent::handle_clipboard_request(const VDAgentClipboardRequest* clipboard_
     }
     switch (clipboard_request->type) {
     case VD_AGENT_CLIPBOARD_UTF8_TEXT:
-        if (!(new_data = (uint8_t*)GlobalLock(clip_data))) {
+        if (!(new_data = GlobalLock(clip_data))) {
             break;
         }
         len = wcslen((LPCWSTR)new_data);
@@ -1371,6 +1371,8 @@ bool VDAgent::handle_clipboard_request(const VDAgentClipboardRequest* clipboard_
 handle_clipboard_request_fail:
     if (clipboard_request->type == VD_AGENT_CLIPBOARD_UTF8_TEXT) {
        GlobalUnlock(clip_data);
+    } else if (new_data) {
+       free_raw_clipboard_image(new_data);
     }
     CloseClipboard();
     return false;

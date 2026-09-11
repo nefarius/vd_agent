@@ -25,7 +25,7 @@ public:
     virtual ~ImageCoder() {}
     virtual size_t get_dib_size(const uint8_t *data, size_t size)=0;
     virtual void get_dib_data(uint8_t *dib, const uint8_t *data, size_t size)=0;
-    virtual uint8_t *from_bitmap(const BITMAPINFO& info, const void *bits, long &size)=0;
+    virtual void *from_bitmap(const BITMAPINFO& info, const void *bits, long &size)=0;
 private:
     ImageCoder(const ImageCoder& rhs);
     void operator=(const ImageCoder &rhs);
@@ -34,9 +34,29 @@ private:
 /**
  * Compute stride in bytes of a DIB
  */
-static inline size_t compute_dib_stride(unsigned int width, unsigned int bit_count)
+static inline DWORD compute_dib_stride(DWORD width, DWORD bit_count)
 {
     return ((width * bit_count + 31u) & ~31u) / 8u;
+}
+
+static inline bool compute_dib_stride_checked(DWORD width, DWORD bit_count, DWORD *stride)
+{
+    if (!stride || bit_count == 0 || bit_count > 32)
+        return false;
+    if (width > (MAXDWORD - 31u) / bit_count)
+        return false;
+    *stride = ((width * bit_count + 31u) & ~31u) / 8u;
+    return *stride != 0;
+}
+
+static inline bool compute_image_size_checked(DWORD stride, DWORD height, DWORD *size)
+{
+    if (!size || stride == 0 || height == 0)
+        return false;
+    if (stride > MAXDWORD / height)
+        return false;
+    *size = stride * height;
+    return true;
 }
 
 ImageCoder *create_bitmap_coder();
@@ -56,16 +76,18 @@ HANDLE get_image_handle(const VDAgentClipboard& clipboard, uint32_t size, UINT& 
  *
  * Function could use clip_data or get new data from the clipboard.
  * You should free data returned with free_raw_clipboard_image.
+ * Encoded buffers are HGLOBAL moveable memory returned locked; the free
+ * helper unlocks and frees the handle.
  * @param      clipboard_request  request
  * @param      clip_data          clipboard data
  * @param[out] new_size           size of returned data
  */
-uint8_t* get_raw_clipboard_image(const VDAgentClipboardRequest& clipboard_request,
-                                 HANDLE clip_data, long& new_size);
+void* get_raw_clipboard_image(const VDAgentClipboardRequest& clipboard_request,
+                              HANDLE clip_data, long& new_size);
 
 /**
  * Free data returned by get_raw_clipboard_image
  */
-void free_raw_clipboard_image(uint8_t *data);
+void free_raw_clipboard_image(void *data);
 
 #endif

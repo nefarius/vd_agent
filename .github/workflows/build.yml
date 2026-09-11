@@ -82,8 +82,6 @@ jobs:
             git
             make
             mingw-w64-ucrt-x86_64-toolchain
-            mingw-w64-ucrt-x86_64-libpng
-            mingw-w64-ucrt-x86_64-zlib
             mingw-w64-ucrt-x86_64-msitools
             mingw-w64-ucrt-x86_64-imagemagick
 
@@ -226,6 +224,69 @@ jobs:
           webhook-url: ${{ secrets.WEBHOOK_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           artifact-name: vdagent-win-x64
+
+  msvc:
+    name: MSVC x64
+    runs-on: windows-2022
+    permissions:
+      contents: read
+    steps:
+      - name: Disable core.autocrlf
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install ImageMagick
+        shell: pwsh
+        run: choco install --timeout 600 -y imagemagick
+
+      - name: Configure and build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cmake -S . -B build64 -A x64
+          cmake --build build64 --config Release
+          cmake --build build64 --config Release --target check
+
+  fedora-mingw64:
+    name: Fedora MinGW64
+    runs-on: ubuntu-latest
+    # Pin by digest (fedora:latest @ 2026-08-26). Bump only in a reviewed PR.
+    container:
+      image: fedora@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+    permissions:
+      contents: read
+    steps:
+      - name: Install git
+        run: dnf install -y git
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install toolchain and compile
+        run: |
+          set -eux
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git fetch --tags origin
+          git describe --abbrev=4 --match='v*' HEAD
+          dnf install -y libtool make autoconf-archive \
+            mingw64-gcc-c++ mingw64-winpthreads-static
+          autoreconf -if
+          mingw64-configure
+          mingw64-make -j"$(nproc)"
 
   release:
     name: GitHub Release

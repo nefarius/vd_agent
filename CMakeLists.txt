@@ -66,21 +66,13 @@ if(MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi")
     set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF" CACHE STRING "" FORCE)
 
-    # find using vcpkg packages
-    find_package(libpng CONFIG REQUIRED)
-    find_path(PNG_INCLUDE_DIR NAMES png.h)
-
-    set(PNG_LIBRARY png_static)
-    set(ZLIB_LIBRARY)
     set(COMMSUPPW_LIBRARY comsuppw)
 else(MSVC)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -s")
-
-    find_package(PNG REQUIRED)
     set(COMMSUPPW_LIBRARY)
 endif(MSVC)
 
-include_directories(common ${CMAKE_BINARY_DIR} spice-protocol spice-common ${PNG_INCLUDE_DIR})
+include_directories(common ${CMAKE_BINARY_DIR} spice-protocol spice-common)
 add_definitions(-DUNICODE -D_UNICODE -DOLDMSVCRT -DWINVER=0x0601)
 
 add_executable(vdagent WIN32
@@ -109,8 +101,7 @@ add_executable(vdagent WIN32
     vdagent/vdagent.rc
 )
 target_link_libraries(vdagent
-    ${PNG_LIBRARY}
-    ${ZLIB_LIBRARY}
+    windowscodecs
     wtsapi32
     uuid
     ole32
@@ -152,9 +143,11 @@ add_executable(imagetest EXCLUDE_FROM_ALL
     vdagent/imagepng.h
 )
 target_link_libraries(imagetest
-    ${PNG_LIBRARY}
-    ${ZLIB_LIBRARY}
+    windowscodecs
     wtsapi32
+    ole32
+    uuid
+    shlwapi
 )
 add_test(NAME test-png COMMAND bash "${CMAKE_SOURCE_DIR}/test-png")
 
