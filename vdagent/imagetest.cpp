@@ -24,6 +24,8 @@
 #include "image.h"
 #include "imagepng.h"
 
+#include <objbase.h>
+
 static void
 save_dib_to_file(ImageCoder& coder, const uint8_t *raw_dib, const char *filename)
 {
@@ -31,25 +33,30 @@ save_dib_to_file(ImageCoder& coder, const uint8_t *raw_dib, const char *filename
     const uint8_t *raw_bits = &raw_dib[sizeof(BITMAPINFOHEADER) + 4 * info.bmiHeader.biClrUsed];
 
     long size = 0;
-    uint8_t *raw_file = coder.from_bitmap(info, raw_bits, size);
+    void *raw_file = coder.from_bitmap(info, raw_bits, size);
     assert(raw_file && size > 0);
 
     FILE *f = fopen(filename, "wb");
     assert(f);
     assert(fwrite(raw_file, 1, size, f) == (unsigned long) size);
     fclose(f);
-    free(raw_file);
+    free_raw_clipboard_image(raw_file);
 }
 
 int main(int argc, char **argv)
 {
-    std::unique_ptr<ImageCoder> coder(create_png_coder());
-
-    assert(coder);
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <in-image> [<out-bmp> [<out-png>]]\n", argv[0]);
         return 1;
     }
+
+    if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED))) {
+        fprintf(stderr, "CoInitializeEx() failed: %lu\n", GetLastError());
+        return 1;
+    }
+
+    std::unique_ptr<ImageCoder> coder(create_png_coder());
+    assert(coder);
 
     // read all file into memory
     FILE *f = fopen(argv[1], "rb");
@@ -77,6 +84,7 @@ int main(int argc, char **argv)
     // convert back to PNG
     save_dib_to_file(*coder, &out[0], argc > 3 ? argv[3] : "out.png");
 
+    CoUninitialize();
     return 0;
 }
 

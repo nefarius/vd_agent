@@ -16,6 +16,7 @@
 */
 
 #include <spice/macros.h>
+#include <climits>
 #include <memory>
 #include <vector>
 #include <algorithm>
@@ -63,8 +64,8 @@ HANDLE get_image_handle(const VDAgentClipboard& clipboard, uint32_t size, UINT& 
     return clip_data;
 }
 
-uint8_t* get_raw_clipboard_image(const VDAgentClipboardRequest& clipboard_request,
-                                 HANDLE clip_data, long& new_size)
+void* get_raw_clipboard_image(const VDAgentClipboardRequest& clipboard_request,
+                              HANDLE clip_data, long& new_size)
 {
     new_size = 0;
 
@@ -122,9 +123,17 @@ uint8_t* get_raw_clipboard_image(const VDAgentClipboardRequest& clipboard_reques
     return coder->from_bitmap(*(LPBITMAPINFO)&info, &bits[0], new_size);
 }
 
-void free_raw_clipboard_image(uint8_t *data)
+void free_raw_clipboard_image(void *data)
 {
-    free(data);
+    if (!data)
+        return;
+
+    HGLOBAL handle = GlobalHandle(data);
+    if (!handle)
+        return;
+
+    GlobalUnlock(handle);
+    GlobalFree(handle);
 }
 
 class BitmapCoder: public ImageCoder
@@ -133,7 +142,7 @@ public:
     BitmapCoder() {};
     size_t get_dib_size(const uint8_t *data, size_t size);
     void get_dib_data(uint8_t *dib, const uint8_t *data, size_t size);
-    uint8_t *from_bitmap(const BITMAPINFO& info, const void *bits, long &size);
+    void *from_bitmap(const BITMAPINFO& info, const void *bits, long &size);
 };
 
 size_t BitmapCoder::get_dib_size(const uint8_t *data, size_t size)
@@ -150,32 +159,51 @@ void BitmapCoder::get_dib_data(uint8_t *dib, const uint8_t *data, size_t size)
     memcpy(dib, data + (size - new_size), new_size);
 }
 
-uint8_t *BitmapCoder::from_bitmap(const BITMAPINFO& info, const void *bits, long &size)
+void *BitmapCoder::from_bitmap(const BITMAPINFO& info, const void *bits, long &size)
 {
     BITMAPFILEHEADER file_hdr;
+    size = 0;
 
     const BITMAPINFOHEADER& head(info.bmiHeader);
+    if (head.biWidth <= 0 || head.biHeight <= 0 || !bits)
+        return NULL;
 
-    const DWORD max_palette_colors = head.biBitCount <= 8 ? 1 << head.biBitCount : 0;
-    size_t palette_size = sizeof(RGBQUAD) * std::min(head.biClrUsed, max_palette_colors);
+    const DWORD max_palette_colors = head.biBitCount <= 8 ? 1u << head.biBitCount : 0;
+    const DWORD used_colors = head.biClrUsed ? std::min(head.biClrUsed, max_palette_colors)
+                                             : max_palette_colors;
+    const size_t palette_size = sizeof(RGBQUAD) * used_colors;
 
-    const size_t stride = compute_dib_stride(head.biWidth, head.biBitCount);
-    const size_t image_size = stride * head.biHeight;
-    size = sizeof(file_hdr) + sizeof(head) + palette_size + image_size;
-
-    file_hdr.bfType = 'B' + 'M'*256u;
-    file_hdr.bfSize = size;
-    file_hdr.bfReserved1 = 0;
-    file_hdr.bfReserved2 = 0;
-    file_hdr.bfOffBits = sizeof(file_hdr) + sizeof(head) + palette_size;
-
-    uint8_t *data = (uint8_t *) malloc(size);
-    if (!data) {
+    DWORD stride = 0;
+    DWORD image_size = 0;
+    if (!compute_dib_stride_checked(static_cast<DWORD>(head.biWidth), head.biBitCount, &stride) ||
+        !compute_image_size_checked(stride, static_cast<DWORD>(head.biHeight), &image_size)) {
         return NULL;
     }
+
+    const size_t total = sizeof(file_hdr) + sizeof(head) + palette_size + image_size;
+    if (total < image_size || total > static_cast<size_t>(LONG_MAX))
+        return NULL;
+
+    file_hdr.bfType = 'B' + 'M'*256u;
+    file_hdr.bfSize = static_cast<DWORD>(total);
+    file_hdr.bfReserved1 = 0;
+    file_hdr.bfReserved2 = 0;
+    file_hdr.bfOffBits = static_cast<DWORD>(sizeof(file_hdr) + sizeof(head) + palette_size);
+
+    HGLOBAL hmem = GlobalAlloc(GMEM_MOVEABLE, total);
+    if (!hmem)
+        return NULL;
+
+    uint8_t *data = static_cast<uint8_t *>(GlobalLock(hmem));
+    if (!data) {
+        GlobalFree(hmem);
+        return NULL;
+    }
+
     memcpy(data, &file_hdr, sizeof(file_hdr));
     memcpy(data + sizeof(file_hdr), &info, sizeof(head) + palette_size);
     memcpy(data + sizeof(file_hdr) + sizeof(head) + palette_size, bits, image_size);
+    size = static_cast<long>(total);
     return data;
 }
 

@@ -40,8 +40,7 @@ LDFLAGS_SECURITY_CUI = $(LDFLAGS_SECURITY_COMMON) \
 
 bin_PROGRAMS = vdagent vdservice
 
-vdagent_LDADD = $(LIBPNG_LIBS) $(ZLIB_LIBS) -lwtsapi32 -lgdi32 -luuid -lole32 -loleaut32 -lmpr -lshlwapi vdagent_rc.$(OBJEXT)
-vdagent_CXXFLAGS = $(AM_CXXFLAGS) $(LIBPNG_CFLAGS)
+vdagent_LDADD = -lwindowscodecs -lwtsapi32 -lgdi32 -luuid -lole32 -loleaut32 -lmpr -lshlwapi vdagent_rc.$(OBJEXT)
 vdagent_LDFLAGS = $(AM_LDFLAGS) $(LDFLAGS_SECURITY_GUI)
 vdagent_SOURCES =			\
 	common/vdcommon.cpp             \
@@ -92,8 +91,7 @@ MAINTAINERCLEANFILES += vdservice_rc.$(OBJEXT)
 
 check_PROGRAMS = imagetest
 
-imagetest_LDADD = $(LIBPNG_LIBS) $(ZLIB_LIBS) -lwtsapi32 -lgdi32
-imagetest_CXXFLAGS = $(AM_CXXFLAGS) $(LIBPNG_CFLAGS)
+imagetest_LDADD = -lwindowscodecs -lwtsapi32 -lgdi32 -lole32 -lshlwapi
 imagetest_LDFLAGS = $(AM_LDFLAGS) $(LDFLAGS_SECURITY_CUI)
 imagetest_SOURCES =			\
 	common/vdcommon.cpp             \

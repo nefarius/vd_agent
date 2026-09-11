@@ -112,28 +112,6 @@ ACX_SET_VAR(CFLAGS, "$CFLAGS -Wall",
   )
 )
 
-PKG_CHECK_MODULES_STATIC(ZLIB, [zlib])
-ACX_SET_VAR(CFLAGS, "$CFLAGS $ZLIB_CFLAGS -Wall",
-  ACX_SET_VAR(LDFLAGS, "$LDFLAGS -static",
-    ACX_SET_VAR(LIBS, "$LIBS $ZLIB_LIBS",
-      AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <zlib.h>]], [[
-        return !!zlibVersion()
-      ]])], [], AC_MSG_ERROR([static zlib not found]))
-    )
-  )
-)
-
-PKG_CHECK_MODULES_STATIC(LIBPNG, [libpng])
-ACX_SET_VAR(CFLAGS, "$CFLAGS $LIBPNG_CFLAGS -Wall",
-  ACX_SET_VAR(LDFLAGS, "$LDFLAGS -static",
-    ACX_SET_VAR(LIBS, "$LIBS $LIBPNG_LIBS",
-      AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <png.h>]], [[
-        return !!png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL)
-      ]])], [], AC_MSG_ERROR([static libpng not found]))
-    )
-  )
-)
-
 dnl ---------------------------------------------------------------------------
 dnl - Makefiles, etc.
 dnl ---------------------------------------------------------------------------

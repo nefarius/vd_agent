@@ -83,7 +83,8 @@ bash msys2/package.sh builducrt64
 ```
 
 `install.sh` pulls `autotools`, `autoconf-archive`, the UCRT64 toolchain,
-static-capable `libpng`/`zlib`, `msitools` (`wixl`), and ImageMagick (tests).
+`msitools` (`wixl`), and ImageMagick (tests). PNG clipboard conversion uses
+the Windows Imaging Component that ships with Windows Vista and later.
 
 `build.sh` configures, compiles `vdagent.exe` / `vdservice.exe`, and runs
 `test-png`, `test-log`, and `test-shell`. `package.sh` then invokes
@@ -104,10 +105,7 @@ sign the MSI.
 
 ```powershell
 git submodule update --init --recursive
-vcpkg install libpng:x64-windows-static
-cmake -S . -B build64 `
-  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
-  -A x64 -DVCPKG_TARGET_TRIPLET=x64-windows-static
+cmake -S . -B build64 -A x64
 cmake --build build64 --config Release
 cmake --build build64 --config Release --target check
 ```

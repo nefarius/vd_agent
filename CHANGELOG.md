@@ -1,3 +1,9 @@
+Unreleased
+==========
+- Replace libpng/zlib with the Windows Imaging Component for PNG clipboard
+  conversion. This removes the MinGW static-libpng link failure on Fedora
+  (`__intrinsic_setjmpex`) and drops a third-party codec dependency.
+
 v0.10.0
 =======
 - Introduce turn_monitor_off method of WDDM interface

@@ -15,8 +15,6 @@ packages=(
     git
     make
     mingw-w64-ucrt-x86_64-toolchain
-    mingw-w64-ucrt-x86_64-libpng
-    mingw-w64-ucrt-x86_64-zlib
     mingw-w64-ucrt-x86_64-msitools
     mingw-w64-ucrt-x86_64-imagemagick
 )
