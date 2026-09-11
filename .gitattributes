@@ -1,0 +1,9 @@
+* text=auto
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.ac text eol=lf
+*.am text eol=lf
+*.in text eol=lf
+*.md text eol=lf
+COPYING text eol=lf

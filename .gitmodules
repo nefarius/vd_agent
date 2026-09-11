@@ -1,8 +1,8 @@
 [submodule "spice-protocol"]
 	path = spice-protocol
-	url = git://git.freedesktop.org/git/spice/spice-protocol.git
+	url = https://gitlab.freedesktop.org/spice/spice-protocol.git
 
 [submodule "spice-common"]
 	path = spice-common
-	url = git://git.freedesktop.org/git/spice/spice-common.git
+	url = https://gitlab.freedesktop.org/spice/spice-common.git
 	ignore = untracked

@@ -132,7 +132,7 @@ test_shell_win_SOURCES = \
 	vdagent/test-shell.cpp \
 	$(NULL)
 
-MANUFACTURER = The Spice Project
+MANUFACTURER = Nefarius Software Solutions e.U.
 PRODUCT = Spice agent
 
 EXTRA_DIST += spice-vdagent.wxs.in
@@ -161,7 +161,12 @@ EXTRA_DIST +=			\
 	vdagent/vdagent.rc	\
 	vdservice/resource.h	\
 	vdservice/vdservice.rc	\
-	CMakeLists.txt
+	CMakeLists.txt		\
+	COPYING			\
+	README.md		\
+	msys2/install.sh	\
+	msys2/build.sh		\
+	msys2/package.sh
 
 ## spice-protocol moved to Meson, distribute manually
 EXTRA_DIST +=					\

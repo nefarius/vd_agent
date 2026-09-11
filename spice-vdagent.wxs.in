@@ -24,7 +24,8 @@
              InstallScope="perMachine"/>
     <Media Id="1" Cabinet="cabinet.cab" EmbedCab="yes"/>
 
-    <Property Id="ARPHELPLINK" Value="https://www.spice-space.org"/>
+    <Property Id="ARPHELPLINK" Value="https://github.com/nefarius/vd_agent"/>
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/nefarius/vd_agent"/>
     <Property Id="ARPNOMODIFY" Value="1"/>
     <Property Id="ARPNOREPAIR" Value="1"/>
     <Upgrade Id="$(var.UpgradeCode)">

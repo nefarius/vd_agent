@@ -1,0 +1,6 @@
+/builducrt64/
+/buildmingw32/
+/build32/
+/build64/
+/dist/
+/.version

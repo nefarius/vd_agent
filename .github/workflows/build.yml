@@ -1,0 +1,235 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - master
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_NOLOGO: 'true'
+  BUILD_DIR: builducrt64
+
+jobs:
+  build:
+    name: UCRT64
+    runs-on: windows-2022
+    permissions:
+      contents: read
+      actions: read
+    env:
+      SIGN_RELAY_SERVER: ${{ vars.SIGN_RELAY_SERVER }}
+      SIGN_RELAY_CI_TOKEN: ${{ secrets.SIGN_RELAY_CI_TOKEN }}
+    outputs:
+      is-release: ${{ steps.meta.outputs.is-release }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Resolve build metadata
+        id: meta
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $isRelease = $env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -like 'v*'
+          if ($env:GITHUB_EVENT_NAME -eq 'pull_request') {
+            $isRelease = $false
+          }
+          "is-release=$($isRelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Output "is-release=$isRelease ref=$env:GITHUB_REF"
+
+      - name: Setup MSYS2 UCRT64
+        uses: msys2/setup-msys2@v2.32.0
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            autotools
+            autoconf-archive
+            git
+            make
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-libpng
+            mingw-w64-ucrt-x86_64-zlib
+            mingw-w64-ucrt-x86_64-msitools
+            mingw-w64-ucrt-x86_64-imagemagick
+
+      - name: Bootstrap Autotools
+        shell: msys2 {0}
+        run: autoreconf -i
+
+      - name: Configure, build, and test
+        shell: msys2 {0}
+        run: bash msys2/build.sh "$BUILD_DIR"
+
+      - name: Require signing configuration
+        if: steps.meta.outputs.is-release == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:SIGN_RELAY_SERVER) { throw 'Repository variable SIGN_RELAY_SERVER is not set.' }
+          if (-not $env:SIGN_RELAY_CI_TOKEN) { throw 'Repository secret SIGN_RELAY_CI_TOKEN is not set.' }
+
+      - name: Setup .NET
+        if: steps.meta.outputs.is-release == 'true'
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Sign guest binaries
+        if: steps.meta.outputs.is-release == 'true'
+        uses: nefarius/SignRelay@39ccbe0cef16a383237130380a5aef8db040d5d0
+        with:
+          server: ${{ env.SIGN_RELAY_SERVER }}
+          token: ${{ env.SIGN_RELAY_CI_TOKEN }}
+          in-place: true
+          files: |
+            ${{ env.BUILD_DIR }}/vdagent.exe
+            ${{ env.BUILD_DIR }}/vdservice.exe
+
+      - name: Verify signed binaries
+        if: steps.meta.outputs.is-release == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = @(
+            Join-Path $env:BUILD_DIR 'vdagent.exe'
+            Join-Path $env:BUILD_DIR 'vdservice.exe'
+          )
+          foreach ($file in $files) {
+            $sig = Get-AuthenticodeSignature -LiteralPath $file
+            if ($sig.Status -ne 'Valid' -or -not $sig.SignerCertificate) {
+              throw "File signature is not Valid: $file (Status=$($sig.Status))."
+            }
+            Write-Output "Signed: $file (Status=$($sig.Status); Subject=$($sig.SignerCertificate.Subject))"
+          }
+
+      - name: Package MSI
+        shell: msys2 {0}
+        run: bash msys2/package.sh "$BUILD_DIR"
+
+      - name: Record MSI path
+        id: package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $msi = Get-ChildItem -Path $env:BUILD_DIR -Filter 'spice-vdagent-x64-*.msi' |
+            Select-Object -First 1
+          if (-not $msi) { throw 'MSI not found after package.sh' }
+          $rel = $msi.FullName.Substring((Get-Location).Path.Length + 1).Replace('\', '/')
+          "msi-path=$rel" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "msi-name=$($msi.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Output "Packaged $rel"
+
+      - name: Inspect MSI
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          msi=$(ls -1 "$BUILD_DIR"/spice-vdagent-x64-*.msi)
+          echo "MSI: $msi"
+          if command -v msiextract >/dev/null; then
+            msiextract --directory "$BUILD_DIR/msi-extract" "$msi"
+            find "$BUILD_DIR/msi-extract" -type f | sort
+          elif command -v 7z >/dev/null; then
+            7z l "$msi"
+          else
+            echo "msiextract/7z not found; skipping MSI listing"
+          fi
+
+      - name: Sign MSI
+        if: steps.meta.outputs.is-release == 'true'
+        uses: nefarius/SignRelay@39ccbe0cef16a383237130380a5aef8db040d5d0
+        with:
+          server: ${{ env.SIGN_RELAY_SERVER }}
+          token: ${{ env.SIGN_RELAY_CI_TOKEN }}
+          in-place: true
+          skip-tool-install: true
+          files: ${{ steps.package.outputs.msi-path }}
+
+      - name: Verify signed MSI
+        if: steps.meta.outputs.is-release == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $msi = Get-ChildItem -Path $env:BUILD_DIR -Filter 'spice-vdagent-x64-*.msi' | Select-Object -First 1
+          if (-not $msi) { throw 'MSI not found after packaging.' }
+          $sig = Get-AuthenticodeSignature -LiteralPath $msi.FullName
+          if ($sig.Status -ne 'Valid' -or -not $sig.SignerCertificate) {
+            throw "MSI signature is not Valid: $($msi.Name) (Status=$($sig.Status))."
+          }
+          Write-Output "Signed: $($msi.FullName) (Status=$($sig.Status); Subject=$($sig.SignerCertificate.Subject))"
+
+      - name: Stage release files
+        id: stage
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = Join-Path $pwd 'dist'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          $msi = Get-ChildItem -Path $env:BUILD_DIR -Filter 'spice-vdagent-x64-*.msi' | Select-Object -First 1
+          if (-not $msi) { throw 'MSI not found after packaging.' }
+          Copy-Item -LiteralPath $msi.FullName -Destination $stage
+          $hash = Get-FileHash -LiteralPath $msi.FullName -Algorithm SHA256
+          $sumName = "$($msi.Name).sha256"
+          $sumPath = Join-Path $stage $sumName
+          "{0}  {1}" -f $hash.Hash.ToLowerInvariant(), $msi.Name |
+            Set-Content -LiteralPath $sumPath -Encoding ascii
+          Write-Output "Staged $($msi.Name) sha256=$($hash.Hash.ToLowerInvariant())"
+          "msi-name=$($msi.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vdagent-win-x64
+          if-no-files-found: error
+          path: |
+            dist/spice-vdagent-x64-*.msi
+            dist/spice-vdagent-x64-*.msi.sha256
+
+      - name: Mirror artifacts
+        if: steps.meta.outputs.is-release == 'true'
+        uses: nefarius/AppVeyorArtifactsReceiver@master
+        with:
+          webhook-url: ${{ secrets.WEBHOOK_URL }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          artifact-name: vdagent-win-x64
+
+  release:
+    name: GitHub Release
+    needs: build
+    if: needs.build.outputs.is-release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: vdagent-win-x64
+          path: dist
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/spice-vdagent-x64-*.msi
+            dist/spice-vdagent-x64-*.msi.sha256
+          generate_release_notes: true
+          fail_on_unmatched_files: true
