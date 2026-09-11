@@ -39,8 +39,9 @@ Pinned build-time submodules (do not bump casually):
 | `spice-common` | `05c0c26839e88e6d0cc5452f49c40e38543c8f97` | https://gitlab.freedesktop.org/spice/spice-common |
 
 Submodule URLs use HTTPS. MSI upgrades keep the historical WiX `UpgradeCode`
-(`7eb9b146-db04-42d7-a8ba-71fc8ced7eed`) so this installer can replace an
-older Spice agent install.
+(`7eb9b146-db04-42d7-a8ba-71fc8ced7eed`) and use a major upgrade so this
+installer replaces an older Spice agent install instead of adding a second
+ARP entry.
 
 ## Clone
 
