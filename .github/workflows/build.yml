@@ -272,10 +272,13 @@ jobs:
           submodules: recursive
           persist-credentials: false
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Install toolchain and compile
         run: |
           set -eux
+          git fetch --tags origin
+          git describe --abbrev=4 --match='v*' HEAD
           dnf install -y libtool make autoconf-archive \
             mingw64-gcc-c++ mingw64-winpthreads-static
           autoreconf -if
