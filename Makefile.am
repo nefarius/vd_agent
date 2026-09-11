@@ -91,7 +91,7 @@ MAINTAINERCLEANFILES += vdservice_rc.$(OBJEXT)
 
 check_PROGRAMS = imagetest
 
-imagetest_LDADD = -lwindowscodecs -lwtsapi32 -lgdi32 -lole32 -lshlwapi
+imagetest_LDADD = -lwindowscodecs -lwtsapi32 -lgdi32 -lole32 -luuid -lshlwapi
 imagetest_LDFLAGS = $(AM_LDFLAGS) $(LDFLAGS_SECURITY_CUI)
 imagetest_SOURCES =			\
 	common/vdcommon.cpp             \

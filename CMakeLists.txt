@@ -146,6 +146,7 @@ target_link_libraries(imagetest
     windowscodecs
     wtsapi32
     ole32
+    uuid
     shlwapi
 )
 add_test(NAME test-png COMMAND bash "${CMAKE_SOURCE_DIR}/test-png")

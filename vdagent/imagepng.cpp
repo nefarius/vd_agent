@@ -17,6 +17,9 @@
 
 #include "vdcommon.h"
 
+#undef max
+#undef min
+
 #include <algorithm>
 #include <climits>
 #include <shlwapi.h>
@@ -88,7 +91,7 @@ size_t PngCoder::convert_to_dib(uint8_t *out_buf, const uint8_t *data, size_t si
     ComPtr<IWICBitmapFrameDecode> frame;
     UINT width = 0;
     UINT height = 0;
-    WICPixelFormatGUID format = GUID_NULL;
+    WICPixelFormatGUID format = {};
     HRESULT hr = factory->CreateDecoder(GUID_ContainerFormatPng, nullptr, &decoder);
     if (FAILED(hr) ||
         FAILED(hr = decoder->Initialize(stream.Get(), WICDecodeMetadataCacheOnDemand)) ||

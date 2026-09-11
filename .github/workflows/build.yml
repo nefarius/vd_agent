@@ -263,6 +263,9 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Install git
+        run: dnf install -y git
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -273,7 +276,7 @@ jobs:
       - name: Install toolchain and compile
         run: |
           set -eux
-          dnf install -y git libtool make autoconf-archive \
+          dnf install -y libtool make autoconf-archive \
             mingw64-gcc-c++ mingw64-winpthreads-static
           autoreconf -if
           mingw64-configure
