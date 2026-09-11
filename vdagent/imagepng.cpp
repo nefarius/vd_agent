@@ -81,7 +81,8 @@ size_t PngCoder::convert_to_dib(uint8_t *out_buf, const uint8_t *data, size_t si
     if (size == 0 || size > MAXUINT)
         return 0;
 
-    ComPtr<IStream> stream = SHCreateMemStream(data, static_cast<UINT>(size));
+    ComPtr<IStream> stream;
+    stream.Attach(SHCreateMemStream(data, static_cast<UINT>(size)));
     if (!stream) {
         vd_printf("failed to create PNG stream");
         return 0;
@@ -304,7 +305,8 @@ void *PngCoder::from_bitmap(const BITMAPINFO& bmp_info, const void *bits, long &
         format = GUID_WICPixelFormat32bppBGR;
         break;
     default:
-        vd_printf("BMP bit count %d not supported", out_bits);
+        vd_printf("BMP bit count %lu not supported",
+                  static_cast<unsigned long>(out_bits));
         return nullptr;
     }
 
@@ -381,15 +383,37 @@ void *PngCoder::from_bitmap(const BITMAPINFO& bmp_info, const void *bits, long &
         FAILED(hr = frame->Commit()) ||
         FAILED(hr = encoder->Commit())) {
         log_hr("encode png", hr);
+        if (stream) {
+            HGLOBAL current = nullptr;
+            if (SUCCEEDED(GetHGlobalFromStream(stream.Get(), &current)) && current)
+                hmem = current;
+        }
         GlobalFree(hmem);
         return nullptr;
     }
 
-    SIZE_T gsize = GlobalSize(hmem);
-    if (gsize == 0 || gsize > static_cast<SIZE_T>(LONG_MAX)) {
-        GlobalFree(hmem);
+    STATSTG stat = {};
+    hr = stream->Stat(&stat, STATFLAG_NONAME);
+    if (FAILED(hr) ||
+        stat.cbSize.QuadPart == 0 ||
+        stat.cbSize.QuadPart > static_cast<ULONGLONG>(LONG_MAX)) {
+        if (FAILED(hr))
+            log_hr("stat png stream", hr);
+        HGLOBAL current = nullptr;
+        if (FAILED(GetHGlobalFromStream(stream.Get(), &current)) || !current)
+            current = hmem;
+        GlobalFree(current);
         return nullptr;
     }
+
+    HGLOBAL encoded = nullptr;
+    hr = GetHGlobalFromStream(stream.Get(), &encoded);
+    if (FAILED(hr) || !encoded) {
+        log_hr("GetHGlobalFromStream", hr);
+        GlobalFree(encoded ? encoded : hmem);
+        return nullptr;
+    }
+    hmem = encoded;
 
     void *data = GlobalLock(hmem);
     if (!data) {
@@ -398,7 +422,7 @@ void *PngCoder::from_bitmap(const BITMAPINFO& bmp_info, const void *bits, long &
         return nullptr;
     }
 
-    size = static_cast<long>(gsize);
+    size = static_cast<long>(stat.cbSize.QuadPart);
     return data;
 }
 

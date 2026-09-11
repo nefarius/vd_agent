@@ -50,8 +50,10 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED))) {
-        fprintf(stderr, "CoInitializeEx() failed: %lu\n", GetLastError());
+    HRESULT com_hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    if (FAILED(com_hr)) {
+        fprintf(stderr, "CoInitializeEx() failed: 0x%08lx\n",
+                static_cast<unsigned long>(com_hr));
         return 1;
     }
 
