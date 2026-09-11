@@ -8,8 +8,9 @@ v0.10.1
 - Build and publish x64 MSI installers from GitHub Actions
 - Include commits since the last tag in the MSI product version so Windows
   upgrades an existing 0.10.0 install
-- Replace the late RemoveExistingProducts sequence with a WiX major upgrade
-  so an existing Spice agent install is removed instead of left side-by-side
+- Remove a related Spice agent install after InstallInitialize, then copy
+  files and register spice-agent, so an upgrade does not leave an empty
+  Program Files directory or a missing service
 
 v0.10.0
 =======

@@ -9,13 +9,15 @@
       <?define ArchString = "64-bit"?>
       <?define ArchProgramFilesFolder = "ProgramFiles64Folder"?>
       <?define Win64 = "yes"?>
+      <?define ProductCode = "36742996-5C62-4E20-BEA3-00041D3ACF43"?>
   <?else?>
       <?define ArchString = "32-bit"?>
       <?define ArchProgramFilesFolder = "ProgramFilesFolder"?>
       <?define Win64 = "no"?>
+      <?define ProductCode = "D54126D8-A90A-43BC-A169-DFDE6B5FF689"?>
   <?endif?>
 
-  <Product Id="*" Name="$(env.PRODUCT) ($(var.ArchString))"
+  <Product Id="$(var.ProductCode)" Name="$(env.PRODUCT) ($(var.ArchString))"
            Manufacturer="$(env.MANUFACTURER)"
            Version="$(var.Version)" UpgradeCode="$(var.UpgradeCode)"
            Language="1033">
@@ -28,22 +30,33 @@
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/nefarius/vd_agent"/>
     <Property Id="ARPNOMODIFY" Value="1"/>
     <Property Id="ARPNOREPAIR" Value="1"/>
-    <MajorUpgrade AllowSameVersionUpgrades="yes"
-                  DowngradeErrorMessage="A newer version of [ProductName] is already installed."/>
+    <Upgrade Id="$(var.UpgradeCode)">
+      <UpgradeVersion Minimum="$(var.Version)" IncludeMinimum="yes" OnlyDetect="yes"
+                      Property="NEWERVERSIONDETECTED"/>
+      <UpgradeVersion Minimum="0.0.0" Maximum="$(var.Version)"
+                      IncludeMinimum="yes" IncludeMaximum="no"
+                      Property="OLDERVERSIONBEINGUPGRADED"/>
+    </Upgrade>
+    <Condition Message="A newer version of [ProductName] is already installed.">
+      NOT NEWERVERSIONDETECTED
+    </Condition>
     <?if $(var.Win64) = no AND $(var.NoWOW) = yes ?>
       <Condition Message="Error: 32-bit version of $(env.PRODUCT) can not be installed on 64-bit Windows.">
           <![CDATA[Not VersionNT64]]>
       </Condition>
     <?endif?>
+    <InstallExecuteSequence>
+      <RemoveExistingProducts After="InstallInitialize"/>
+    </InstallExecuteSequence>
 
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="$(var.ArchProgramFilesFolder)">
         <Directory Id="INSTALLDIR" Name="$(env.INSTALLDIRECTORY)">
           <Directory Id="Dbindir" Name="$(env.BINDIRECTORY)">
-            <Component Id="CSpiceAgent" Guid="*" Win64="$(var.Win64)">
+            <Component Id="CSpiceAgent" Guid="936F0100-D205-429B-A92A-2E490ADC5964" Win64="$(var.Win64)">
               <File Id='spiceagent' Name='vdagent.exe' DiskId='1' Source='vdagent.exe' KeyPath='yes'/>
             </Component>
-            <Component Id="CSpiceService" Guid="*" Win64="$(var.Win64)">
+            <Component Id="CSpiceService" Guid="7E64FC9B-458B-4AE3-BE92-9D4304B682E9" Win64="$(var.Win64)">
               <File Id='spiceservice' Name='vdservice.exe' DiskId='1' Source='vdservice.exe' KeyPath='yes'/>
               <ServiceInstall Id="ServiceInstall"
                             Name="spice-agent"
@@ -51,8 +64,6 @@
                             Description="The Spice guest agent"
                             Type="ownProcess"
                             Start="auto"
-                            Account="[SERVICEACCOUNT]"
-                            Password="[SERVICEPASSWORD]"
                             ErrorControl="normal"/>
               <ServiceControl Id="StartService"
                             Name="spice-agent"

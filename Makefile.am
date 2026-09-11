@@ -140,7 +140,7 @@ spice-vdagent-$(WIXL_ARCH)-$(VERSION)$(BUILDID).msi: spice-vdagent.wxs all
 	$(AM_V_GEN)DESTDIR=`mktemp -d`&&				\
 	make -C $(top_builddir) install DESTDIR=$$DESTDIR >/dev/null &&	\
 	  MANUFACTURER="$(MANUFACTURER)" PRODUCT="$(PRODUCT)"           \
-	  INSTALLDIRECTORY="$(PRODUCT)" BINDIRECTORY=bin                \
+	  INSTALLDIRECTORY="SPICE agent" BINDIRECTORY=bin               \
 	  wixl -D SourceDir=$$DESTDIR$(prefix)/bin                      \
 	  --arch $(WIXL_ARCH)  -o $@ $<
 
