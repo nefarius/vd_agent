@@ -277,6 +277,7 @@ jobs:
       - name: Install toolchain and compile
         run: |
           set -eux
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git fetch --tags origin
           git describe --abbrev=4 --match='v*' HEAD
           dnf install -y libtool make autoconf-archive \
