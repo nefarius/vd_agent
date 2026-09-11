@@ -373,6 +373,11 @@ void *PngCoder::from_bitmap(const BITMAPINFO& bmp_info, const void *bits, long &
     ComPtr<IStream> stream;
     ComPtr<IWICBitmapEncoder> encoder;
     ComPtr<IWICBitmapFrameEncode> frame;
+    auto release_stream_owners = [&]() {
+        frame.Reset();
+        encoder.Reset();
+        stream.Reset();
+    };
     hr = CreateStreamOnHGlobal(hmem, FALSE, &stream);
     if (FAILED(hr) ||
         FAILED(hr = factory->CreateEncoder(GUID_ContainerFormatPng, nullptr, &encoder)) ||
@@ -388,6 +393,7 @@ void *PngCoder::from_bitmap(const BITMAPINFO& bmp_info, const void *bits, long &
             if (SUCCEEDED(GetHGlobalFromStream(stream.Get(), &current)) && current)
                 hmem = current;
         }
+        release_stream_owners();
         GlobalFree(hmem);
         return nullptr;
     }
@@ -402,6 +408,7 @@ void *PngCoder::from_bitmap(const BITMAPINFO& bmp_info, const void *bits, long &
         HGLOBAL current = nullptr;
         if (FAILED(GetHGlobalFromStream(stream.Get(), &current)) || !current)
             current = hmem;
+        release_stream_owners();
         GlobalFree(current);
         return nullptr;
     }
@@ -410,10 +417,12 @@ void *PngCoder::from_bitmap(const BITMAPINFO& bmp_info, const void *bits, long &
     hr = GetHGlobalFromStream(stream.Get(), &encoded);
     if (FAILED(hr) || !encoded) {
         log_hr("GetHGlobalFromStream", hr);
+        release_stream_owners();
         GlobalFree(encoded ? encoded : hmem);
         return nullptr;
     }
     hmem = encoded;
+    release_stream_owners();
 
     void *data = GlobalLock(hmem);
     if (!data) {
