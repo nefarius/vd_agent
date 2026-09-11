@@ -98,11 +98,11 @@ builducrt64/spice-vdagent-x64-<version>.msi
 
 Version strings come from `git describe` via
 [`build-aux/git-version-gen`](build-aux/git-version-gen). Release tags must
-look like `v0.10.1` so Windows/MSI product versions stay numeric. Untagged
-builds add the commit count since the last tag to the MSI product version so
-they upgrade an existing same-tag install (for example `v0.10.0` plus 83
-commits becomes `0.10.83`). Configure fails if that count plus `--with-buildid`
-reaches 256, because that would collide with the next micro version.
+look like `v0.11.0` (minor bumps) so Programs and Features shows the tag
+exactly. Untagged builds add the commit count since the last tag (for example
+`v0.11.0` plus 83 commits becomes `0.11.83`). Configure fails if that count
+plus `--with-buildid` reaches 256, because that would collide with the next
+micro version.
 
 To sign a local build, sign the two executables **before** `package.sh`, then
 sign the MSI.
@@ -167,8 +167,8 @@ subject/thumbprint and timestamp there, not in this repository.
 2. Tag an annotated release and push it:
 
    ```bash
-   git tag -a v0.10.1 -m "vdagent-win 0.10.1"
-   git push origin v0.10.1
+   git tag -a v0.11.0 -m "vdagent-win 0.11.0"
+   git push origin v0.11.0
    ```
 
 3. Confirm the **Build** workflow:
@@ -179,7 +179,7 @@ subject/thumbprint and timestamp there, not in this repository.
 4. Install the MSI in a Windows 11 SPICE guest and run the checklist below
 
 If a tagged build fails after signing started, fix the tree and move the tag
-forward (or use a new patch version). Do not reuse a published MSI name with
+forward (or use a new minor version). Do not reuse a published MSI name with
 different bytes.
 
 To recover a failed release: delete the GitHub Release draft if any, push a

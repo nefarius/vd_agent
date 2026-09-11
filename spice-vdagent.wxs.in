@@ -9,15 +9,13 @@
       <?define ArchString = "64-bit"?>
       <?define ArchProgramFilesFolder = "ProgramFiles64Folder"?>
       <?define Win64 = "yes"?>
-      <?define ProductCode = "36742996-5C62-4E20-BEA3-00041D3ACF43"?>
   <?else?>
       <?define ArchString = "32-bit"?>
       <?define ArchProgramFilesFolder = "ProgramFilesFolder"?>
       <?define Win64 = "no"?>
-      <?define ProductCode = "D54126D8-A90A-43BC-A169-DFDE6B5FF689"?>
   <?endif?>
 
-  <Product Id="$(var.ProductCode)" Name="$(env.PRODUCT) ($(var.ArchString))"
+  <Product Id="*" Name="$(env.PRODUCT) ($(var.ArchString))"
            Manufacturer="$(env.MANUFACTURER)"
            Version="$(var.Version)" UpgradeCode="$(var.UpgradeCode)"
            Language="1033">

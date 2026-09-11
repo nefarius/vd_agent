@@ -1,4 +1,4 @@
-v0.10.1
+v0.11.0
 =======
 - Replace libpng/zlib with the Windows Imaging Component for PNG clipboard
   conversion. This removes the MinGW static-libpng link failure on Fedora
@@ -6,8 +6,12 @@ v0.10.1
 - Fix mouse movement when multiple GPUs are present
 - Add side and extra mouse button support
 - Build and publish x64 MSI installers from GitHub Actions
+- Bump the minor version on each release so Programs and Features shows the
+  tag (0.11.0) instead of a packed micro or a commit count
+- Give each MSI a new ProductCode so a newer build upgrades the installed
+  package instead of reporting that the product is already installed
 - Include commits since the last tag in the MSI product version so Windows
-  upgrades an existing 0.10.0 install
+  upgrades an existing same-tag install
 - Remove a related Spice agent install after InstallInitialize, then copy
   files and register spice-agent, so an upgrade does not leave an empty
   Program Files directory or a missing service

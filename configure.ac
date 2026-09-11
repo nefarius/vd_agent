@@ -22,11 +22,12 @@ if test "x$with_buildid" != x; then
   AC_SUBST([BUILDID], "-$with_buildid")
 fi
 
-# git-version-gen emits 0.10.1 or 0.10.0.83-abcde (commits since the tag).
-# MSI ProductVersion is major.minor.build (each 0-65535). Encode
-# build = micro * 256 + distance + buildid so untagged 0.10.0.N upgrades
-# 0.10.0. distance+buildid must stay below 256 or it collides with the
-# next micro (0.10.0 + 256 commits == tagged 0.10.1).
+# Releases bump minor (v0.11.0) so ARP shows the tag exactly. git-version-gen
+# emits 0.11.0 or 0.11.0.83-abcde (commits since the tag). MSI ProductVersion
+# is major.minor.build; Windows Installer limits major and minor to 0-255 and
+# build to 0-65535. Encode build = micro * 256 + distance + buildid so an
+# untagged 0.11.0.N upgrades 0.11.0. distance+buildid must stay below 256 or
+# it collides with the next micro (0.11.0 + 256 commits == tagged 0.11.1).
 major=`echo "$PACKAGE_VERSION" | cut -d. -f1`
 minor=`echo "$PACKAGE_VERSION" | cut -d. -f2`
 micro=`echo "$PACKAGE_VERSION" | cut -d. -f3 | cut -d- -f1`
@@ -59,8 +60,8 @@ else
     ;;
   esac
 fi
-if test "$major" -gt 65535 || test "$minor" -gt 65535; then
-  AC_MSG_ERROR([MSI product version major/minor must be 0-65535 (got $major.$minor)])
+if test "$major" -gt 255 || test "$minor" -gt 255; then
+  AC_MSG_ERROR([MSI product version major/minor must be 0-255 (got $major.$minor)])
 fi
 slot=`expr $distance + $buildid`
 if test "$slot" -ge 256; then
