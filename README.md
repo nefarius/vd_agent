@@ -96,7 +96,10 @@ builducrt64/spice-vdagent-x64-<version>.msi
 
 Version strings come from `git describe` via
 [`build-aux/git-version-gen`](build-aux/git-version-gen). Release tags must
-look like `v0.10.1` so Windows/MSI product versions stay numeric.
+look like `v0.10.1` so Windows/MSI product versions stay numeric. Untagged
+builds add the commit count since the last tag to the MSI product version so
+they upgrade an existing same-tag install (for example `v0.10.0` plus 83
+commits becomes `0.10.83`).
 
 To sign a local build, sign the two executables **before** `package.sh`, then
 sign the MSI.

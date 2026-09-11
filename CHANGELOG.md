@@ -1,8 +1,13 @@
-Unreleased
-==========
+v0.10.1
+=======
 - Replace libpng/zlib with the Windows Imaging Component for PNG clipboard
   conversion. This removes the MinGW static-libpng link failure on Fedora
   (`__intrinsic_setjmpex`) and drops a third-party codec dependency.
+- Fix mouse movement when multiple GPUs are present
+- Add side and extra mouse button support
+- Build and publish x64 MSI installers from GitHub Actions
+- Include commits since the last tag in the MSI product version so Windows
+  upgrades an existing 0.10.0 install
 
 v0.10.0
 =======

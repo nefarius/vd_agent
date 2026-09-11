@@ -22,18 +22,24 @@ if test "x$with_buildid" != x; then
   AC_SUBST([BUILDID], "-$with_buildid")
 fi
 
-major=`echo $PACKAGE_VERSION | cut -d. -f1`
-minor=`echo $PACKAGE_VERSION | cut -d. -f2`
-micro=`echo $PACKAGE_VERSION | cut -d. -f3`
+# git-version-gen emits 0.10.1 or 0.10.0.83-abcde (commits since the tag).
+# MSI ProductVersion is major.minor.build. Using only the third field left
+# untagged builds at 0.10.0, so Windows reported "Product already installed".
+major=`echo "$PACKAGE_VERSION" | cut -d. -f1`
+minor=`echo "$PACKAGE_VERSION" | cut -d. -f2`
+micro=`echo "$PACKAGE_VERSION" | cut -d. -f3 | cut -d- -f1`
+distance=`echo "$PACKAGE_VERSION" | cut -d. -f4 | cut -d- -f1`
+case $micro in ''|*[!0-9]*) micro=0 ;; esac
+case $distance in ''|*[!0-9]*) distance=0 ;; esac
 buildid=`echo $with_buildid | cut -d. -f1`
 if test "x$buildid" = x; then
   buildid=0
 fi
-build=`expr $micro \* 256 + $buildid`
+case $buildid in *[!0-9]*) buildid=0 ;; esac
+build=`expr $micro \* 256 + $distance + $buildid`
 WINDOWS_PRODUCTVERSION="$major.$minor.$build"
 AC_SUBST([WINDOWS_PRODUCTVERSION])
-microdigit=`echo $micro | cut -d- -f1`
-RC_PRODUCTVERSION="$major, $minor, $microdigit, 0"
+RC_PRODUCTVERSION="$major, $minor, $micro, $distance"
 AC_DEFINE_UNQUOTED([RC_PRODUCTVERSION_STR], "$RC_PRODUCTVERSION", [Resource product version])
 AC_DEFINE_UNQUOTED([RC_PRODUCTVERSION], [$RC_PRODUCTVERSION], [Resource product version])
 BUILD_YEAR=`date +%Y`
