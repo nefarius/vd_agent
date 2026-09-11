@@ -35,12 +35,29 @@ jobs:
     outputs:
       is-release: ${{ steps.meta.outputs.is-release }}
     steps:
+      - name: Disable core.autocrlf
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
           persist-credentials: false
           fetch-depth: 0
+
+      - name: Assert a clean worktree
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git status --porcelain --untracked-files=no
+          $dirty = git status --porcelain --untracked-files=no
+          if ($dirty) {
+            git diff --stat
+            throw 'Worktree is dirty; git-version-gen would emit a -dirty MSI version.'
+          }
 
       - name: Resolve build metadata
         id: meta

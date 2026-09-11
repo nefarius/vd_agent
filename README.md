@@ -150,8 +150,9 @@ Create these on `nefarius/vd_agent` (Settings → Secrets and variables):
 | `SIGN_RELAY_CI_TOKEN` | Secret | CI bearer token (`SignRelay__CiToken` on the server) |
 | `WEBHOOK_URL` | Secret | AppVeyorArtifactsReceiver webhook |
 
-Copy the secret values from an already-working repo such as DsHidMini. Do not
-commit them.
+Copy `SIGN_RELAY_CI_TOKEN` and `WEBHOOK_URL` from an already-working repo such
+as DsHidMini. `SIGN_RELAY_SERVER` is already set as a repository variable.
+Do not commit secret values.
 
 The Windows SignRelay agent holds the code-signing certificate. Configure
 subject/thumbprint and timestamp there, not in this repository.
