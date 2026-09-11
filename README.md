@@ -100,7 +100,8 @@ Version strings come from `git describe` via
 look like `v0.10.1` so Windows/MSI product versions stay numeric. Untagged
 builds add the commit count since the last tag to the MSI product version so
 they upgrade an existing same-tag install (for example `v0.10.0` plus 83
-commits becomes `0.10.83`).
+commits becomes `0.10.83`). Configure fails if that count plus `--with-buildid`
+reaches 256, because that would collide with the next micro version.
 
 To sign a local build, sign the two executables **before** `package.sh`, then
 sign the MSI.

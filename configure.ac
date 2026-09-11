@@ -23,20 +23,53 @@ if test "x$with_buildid" != x; then
 fi
 
 # git-version-gen emits 0.10.1 or 0.10.0.83-abcde (commits since the tag).
-# MSI ProductVersion is major.minor.build. Using only the third field left
-# untagged builds at 0.10.0, so Windows reported "Product already installed".
+# MSI ProductVersion is major.minor.build (each 0-65535). Encode
+# build = micro * 256 + distance + buildid so untagged 0.10.0.N upgrades
+# 0.10.0. distance+buildid must stay below 256 or it collides with the
+# next micro (0.10.0 + 256 commits == tagged 0.10.1).
 major=`echo "$PACKAGE_VERSION" | cut -d. -f1`
 minor=`echo "$PACKAGE_VERSION" | cut -d. -f2`
 micro=`echo "$PACKAGE_VERSION" | cut -d. -f3 | cut -d- -f1`
 distance=`echo "$PACKAGE_VERSION" | cut -d. -f4 | cut -d- -f1`
-case $micro in ''|*[!0-9]*) micro=0 ;; esac
-case $distance in ''|*[!0-9]*) distance=0 ;; esac
-buildid=`echo $with_buildid | cut -d. -f1`
-if test "x$buildid" = x; then
-  buildid=0
+case $major in ''|*[!0-9]*)
+  AC_MSG_ERROR([PACKAGE_VERSION "$PACKAGE_VERSION" has a non-numeric major])
+  ;;
+esac
+case $minor in ''|*[!0-9]*)
+  AC_MSG_ERROR([PACKAGE_VERSION "$PACKAGE_VERSION" has a non-numeric minor])
+  ;;
+esac
+case $micro in ''|*[!0-9]*)
+  AC_MSG_ERROR([PACKAGE_VERSION "$PACKAGE_VERSION" has a non-numeric micro])
+  ;;
+esac
+if test "x$distance" = x; then
+  distance=0
 fi
-case $buildid in *[!0-9]*) buildid=0 ;; esac
-build=`expr $micro \* 256 + $distance + $buildid`
+case $distance in *[!0-9]*)
+  AC_MSG_ERROR([PACKAGE_VERSION "$PACKAGE_VERSION" has a non-numeric commit distance])
+  ;;
+esac
+if test "x$with_buildid" = x || test "x$with_buildid" = xyes || test "x$with_buildid" = xno; then
+  buildid=0
+else
+  buildid=`echo "$with_buildid" | cut -d. -f1`
+  case $buildid in ''|*[!0-9]*)
+    AC_MSG_ERROR([--with-buildid must be a non-negative integer, not "$with_buildid"])
+    ;;
+  esac
+fi
+if test "$major" -gt 65535 || test "$minor" -gt 65535; then
+  AC_MSG_ERROR([MSI product version major/minor must be 0-65535 (got $major.$minor)])
+fi
+slot=`expr $distance + $buildid`
+if test "$slot" -ge 256; then
+  AC_MSG_ERROR([commit distance $distance plus buildid $buildid collides with the next micro increment (need distance+buildid < 256)])
+fi
+build=`expr $micro \* 256 + $slot`
+if test "$build" -gt 65535; then
+  AC_MSG_ERROR([MSI product version build $build exceeds 65535])
+fi
 WINDOWS_PRODUCTVERSION="$major.$minor.$build"
 AC_SUBST([WINDOWS_PRODUCTVERSION])
 RC_PRODUCTVERSION="$major, $minor, $micro, $distance"
