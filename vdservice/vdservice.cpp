@@ -406,7 +406,7 @@ bool VDService::execute()
     }
     _events_count = VD_STATIC_EVENTS_COUNT + 1 /*for agent*/;
     _events = new HANDLE[_events_count];
-    ZeroMemory(_events, _events_count);
+    ZeroMemory(_events, _events_count * sizeof(*_events));
     _events[VD_EVENT_CONTROL] = _control_event;
     while (_running) {
         unsigned actual_events = fill_agent_event();

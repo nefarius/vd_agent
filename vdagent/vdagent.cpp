@@ -895,7 +895,7 @@ static HANDLE get_drop_effect_handle(DWORD effect)
 
 bool VDAgent::handle_clipboard(const VDAgentClipboard* clipboard, uint32_t size)
 {
-    HANDLE clip_data;
+    HANDLE clip_data = NULL;
     UINT format;
     bool ret = false;
 
@@ -925,7 +925,13 @@ bool VDAgent::handle_clipboard(const VDAgentClipboard* clipboard, uint32_t size)
         DWORD drop_effect;
         std::vector<wchar_t> path_arr = clipboard_data_to_path_array(drive,
             (LPCSTR)clipboard->data, size, drop_effect);
-        SetClipboardData(_cb_format_drop_effect, get_drop_effect_handle(drop_effect));
+        HANDLE drop_effect_data = get_drop_effect_handle(drop_effect);
+        if (!SetClipboardData(_cb_format_drop_effect, drop_effect_data)) {
+            vd_printf("SetClipboardData drop effect failed: %lu", GetLastError());
+            if (drop_effect_data) {
+                GlobalFree(drop_effect_data);
+            }
+        }
         clip_data = get_dropfiles_handle(path_arr);
         format = CF_HDROP;
         break;
@@ -939,7 +945,9 @@ bool VDAgent::handle_clipboard(const VDAgentClipboard* clipboard, uint32_t size)
         goto fin;
     }
     ret = !!SetClipboardData(format, clip_data);
-    if (!ret) {
+    if (ret) {
+        clip_data = NULL;
+    } else {
         DWORD err = GetLastError();
         if (err == ERROR_NOT_ENOUGH_MEMORY) {
             vd_printf("Not enough memory to set clipboard data, size %u bytes", size);
@@ -948,6 +956,9 @@ bool VDAgent::handle_clipboard(const VDAgentClipboard* clipboard, uint32_t size)
         }
     }
 fin:
+    if (clip_data) {
+        GlobalFree(clip_data);
+    }
     set_control_event(CONTROL_CLIPBOARD);
     return ret;
 }
@@ -1533,7 +1544,7 @@ void VDAgent::dispatch_message(VDAgentMessage* msg, uint32_t port)
         if (_file_xfer.dispatch(msg, status, status_size)) {
             agent_prepare_filexfer_status(&status, &status_size,
                                           _client_caps.data(), _client_caps.size());
-            write_message(VD_AGENT_FILE_XFER_STATUS, sizeof(status), &status);
+            write_message(VD_AGENT_FILE_XFER_STATUS, status_size, &status);
         }
         break;
     }

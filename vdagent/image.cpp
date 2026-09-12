@@ -85,7 +85,10 @@ void* get_raw_clipboard_image(const VDAgentClipboardRequest& clipboard_request,
 
     // extract DIB
     BITMAP bitmap;
-    GetObject(clip_data, sizeof(bitmap), &bitmap);
+    if (GetObject(clip_data, sizeof(bitmap), &bitmap) != sizeof(bitmap) ||
+        bitmap.bmWidth <= 0 || bitmap.bmHeight <= 0) {
+        return NULL;
+    }
 
     struct {
         BITMAPINFOHEADER head;
@@ -101,16 +104,25 @@ void* get_raw_clipboard_image(const VDAgentClipboardRequest& clipboard_request,
     head.biBitCount = bitmap.bmBitsPixel >= 16 ? 24 : bitmap.bmBitsPixel;
     head.biCompression = BI_RGB;
 
+    DWORD stride = 0;
+    DWORD image_size = 0;
+    if (!compute_dib_stride_checked(static_cast<DWORD>(head.biWidth), head.biBitCount, &stride) ||
+        !compute_image_size_checked(stride, static_cast<DWORD>(head.biHeight), &image_size)) {
+        return NULL;
+    }
+
     HDC dc = GetDC(NULL);
+    if (!dc) {
+        return NULL;
+    }
     HPALETTE old_pal = NULL;
     if (pal) {
         old_pal = (HPALETTE)SelectObject(dc, pal);
         RealizePalette(dc);
     }
-    size_t stride = compute_dib_stride(head.biWidth, head.biBitCount);
-    std::vector<uint8_t> bits(stride * head.biHeight);
+    std::vector<uint8_t> bits(image_size);
     int res = GetDIBits(dc, (HBITMAP) clip_data, 0, head.biHeight,
-                        &bits[0], (LPBITMAPINFO)&info, DIB_RGB_COLORS);
+                        bits.data(), (LPBITMAPINFO)&info, DIB_RGB_COLORS);
     if (pal) {
         SelectObject(dc, old_pal);
     }
