@@ -267,7 +267,11 @@ cleanup:
         RegCloseKey(hkey_cur_user);
     }
     if (impersonated) {
-        RevertToSelf();
+        if (!RevertToSelf()) {
+            DWORD err = GetLastError();
+            vd_printf("RevertToSelf: failed %lu", err);
+            _fatal = true;
+        }
     }
     CloseHandle(htoken);
     CloseHandle(hprocess);

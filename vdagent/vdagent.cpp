@@ -394,6 +394,9 @@ void VDAgent::handle_control_event()
             if (!_logon_desktop) {
                 vd_printf("LOGON display setting");
                 _display_setting.load();
+                if (_display_setting.fatal()) {
+                    _running = false;
+                }
             } else {
                 _logon_occured = true;
             }
@@ -456,6 +459,10 @@ void VDAgent::input_desktop_message_loop()
         } else if (_logon_occured && _logon_desktop) {
             vd_printf("LOGON display setting");
             _display_setting.load();
+        }
+        if (_display_setting.fatal()) {
+            _running = false;
+            return;
         }
         _logon_occured = false;
         _logon_desktop = false;
@@ -996,6 +1003,9 @@ HGLOBAL VDAgent::utf8_alloc(LPCSTR data, int size)
 void VDAgent::load_display_setting()
 {
     _display_setting.load();
+    if (_display_setting.fatal()) {
+        _running = false;
+    }
 }
 
 static const uint16_t supported_caps[] = {
@@ -1093,6 +1103,9 @@ bool VDAgent::handle_display_config(const VDAgentDisplayConfig* display_config, 
     }
 
     _display_setting.set(disp_setting_opts);
+    if (_display_setting.fatal()) {
+        return false;
+    }
 
     if (display_config->flags & VD_AGENT_DISPLAY_CONFIG_FLAG_SET_COLOR_DEPTH) {
         _desktop_layout->set_display_depth(display_config->depth);
