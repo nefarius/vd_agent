@@ -35,9 +35,12 @@ public:
 
 class DisplaySetting {
 public:
-    DisplaySetting(const char* registry_key) : _reg_key (registry_key) {}
+    DisplaySetting(const char* registry_key)
+        : _reg_key (registry_key)
+        , _fatal (false) {}
     void set(DisplaySettingOptions& opts);
     void load();
+    bool fatal() const { return _fatal; }
 
 private:
     bool disable_wallpaper();
@@ -58,6 +61,7 @@ private:
 
 private:
     std::string _reg_key;
+    bool _fatal;
 
 };
 

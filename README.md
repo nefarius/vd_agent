@@ -100,7 +100,7 @@ Version strings come from `git describe` via
 [`build-aux/git-version-gen`](build-aux/git-version-gen). Release tags must
 look like `v0.11.0` (minor bumps) so Programs and Features shows the tag
 exactly. Untagged builds add the commit count since the last tag (for example
-`v0.11.0` plus 83 commits becomes `0.11.83`). Configure fails if that count
+`v0.11.0` plus 83 commits becomes `0.11.0.83-<hash>`). Configure fails if that count
 plus `--with-buildid` reaches 256, because that would collide with the next
 micro version.
 

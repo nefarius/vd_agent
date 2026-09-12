@@ -56,12 +56,12 @@ void DisplaySetting::set(DisplaySettingOptions& opts)
     status = RegCreateKeyExA(HKEY_LOCAL_MACHINE, _reg_key.c_str(), 0, NULL,
                              REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hkey, &dispos);
     if (status != ERROR_SUCCESS) {
-        vd_printf("create/open registry key: fail %lu", GetLastError());
+        vd_printf("create/open registry key: fail %ld", status);
     } else {
         status = RegSetValueExA(hkey, DISPLAY_SETTING_MASK_REG_VALUE, 0,
                                 REG_BINARY, &reg_mask, sizeof(reg_mask));
         if (status != ERROR_SUCCESS) {
-            vd_printf("setting registry key DisplaySettingMask: fail %lu", GetLastError());
+            vd_printf("setting registry key DisplaySettingMask: fail %ld", status);
         }
         RegCloseKey(hkey);
     }
@@ -91,7 +91,7 @@ void DisplaySetting::load()
                               &value_type, &setting_mask, &value_size);
 
     if (status != ERROR_SUCCESS) {
-        vd_printf("get registry mask value: fail %lu", GetLastError());
+        vd_printf("get registry mask value: fail %ld", status);
         RegCloseKey(hkey);
         return;
     }
@@ -198,19 +198,28 @@ bool DisplaySetting::load(DisplaySettingOptions& opts)
 bool DisplaySetting::reload_from_registry(DisplaySettingOptions& opts)
 {
     DWORD user_pid;
-    HANDLE hprocess, htoken;
-    bool ret = true;
+    HANDLE hprocess = NULL;
+    HANDLE htoken = NULL;
+    HKEY hkey_cur_user = NULL;
+    HKEY hkey_desktop = NULL;
+    LONG status;
+    bool impersonated = false;
+    bool ret = false;
 
     user_pid = get_user_process_id();
 
     if (!user_pid) {
         vd_printf("get_user_process_id failed");
         return false;
-    } else {
-        vd_printf("explorer pid %ld", user_pid);
     }
 
+    vd_printf("explorer pid %ld", user_pid);
+
     hprocess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, user_pid);
+    if (!hprocess) {
+        vd_printf("OpenProcess: failed %lu", GetLastError());
+        return false;
+    }
 
     if (!OpenProcessToken(hprocess, TOKEN_ALL_ACCESS, &htoken)) {
         vd_printf("OpenProcessToken: failed %lu", GetLastError());
@@ -218,56 +227,54 @@ bool DisplaySetting::reload_from_registry(DisplaySettingOptions& opts)
         return false;
     }
 
-    HKEY hkey_cur_user = NULL;
-    HKEY hkey_desktop = NULL;
-    LONG status;
-    try {
-        ImpersonateLoggedOnUser(htoken);
-
-        status = RegOpenCurrentUser(KEY_READ, &hkey_cur_user);
-        if (status != ERROR_SUCCESS) {
-            vd_printf("RegOpenCurrentUser: failed %lu", GetLastError());
-            throw;
-        }
-
-        status = RegOpenKeyExA(hkey_cur_user, USER_DESKTOP_REGISTRY_KEY, 0,
-                               KEY_READ, &hkey_desktop);
-        if (status != ERROR_SUCCESS) {
-            vd_printf("RegOpenKeyExA: failed %lu", GetLastError());
-            throw;
-        }
-
-        if (!opts._disable_wallpaper) {
-            ret &= reload_wallpaper(hkey_desktop);
-        }
-
-        if (!opts._disable_font_smoothing) {
-            ret &= reload_font_smoothing(hkey_desktop);
-        }
-
-        if (!opts._disable_animation) {
-            ret &= reload_animation(hkey_desktop);
-        }
-
-        RegCloseKey(hkey_desktop);
-        RegCloseKey(hkey_cur_user);
-        RevertToSelf();
-        CloseHandle(htoken);
-        CloseHandle(hprocess);
-    } catch(...) {
-        if (hkey_desktop) {
-            RegCloseKey(hkey_desktop);
-        }
-
-        if (hkey_cur_user) {
-            RegCloseKey(hkey_cur_user);
-        }
-
-        RevertToSelf();
-        CloseHandle(htoken);
-        CloseHandle(hprocess);
-        return false;
+    if (!ImpersonateLoggedOnUser(htoken)) {
+        vd_printf("ImpersonateLoggedOnUser: failed %lu", GetLastError());
+        goto cleanup;
     }
+    impersonated = true;
+
+    status = RegOpenCurrentUser(KEY_READ, &hkey_cur_user);
+    if (status != ERROR_SUCCESS) {
+        vd_printf("RegOpenCurrentUser: failed %ld", status);
+        goto cleanup;
+    }
+
+    status = RegOpenKeyExA(hkey_cur_user, USER_DESKTOP_REGISTRY_KEY, 0,
+                           KEY_READ, &hkey_desktop);
+    if (status != ERROR_SUCCESS) {
+        vd_printf("RegOpenKeyExA: failed %ld", status);
+        goto cleanup;
+    }
+
+    ret = true;
+    if (!opts._disable_wallpaper) {
+        ret &= reload_wallpaper(hkey_desktop);
+    }
+
+    if (!opts._disable_font_smoothing) {
+        ret &= reload_font_smoothing(hkey_desktop);
+    }
+
+    if (!opts._disable_animation) {
+        ret &= reload_animation(hkey_desktop);
+    }
+
+cleanup:
+    if (hkey_desktop) {
+        RegCloseKey(hkey_desktop);
+    }
+    if (hkey_cur_user) {
+        RegCloseKey(hkey_cur_user);
+    }
+    if (impersonated) {
+        if (!RevertToSelf()) {
+            DWORD err = GetLastError();
+            vd_printf("RevertToSelf: failed %lu", err);
+            _fatal = true;
+        }
+    }
+    CloseHandle(htoken);
+    CloseHandle(hprocess);
     return ret;
 }
 
@@ -460,7 +467,7 @@ bool DisplaySetting::reload_win_animation(HKEY desktop_reg_key)
     if (SystemParametersInfoA(SPI_SETANIMATION, sizeof(ANIMATIONINFO),
                               &active_win_animation, 0)) {
         vd_printf("reload window animation: success");
-        return false;
+        return true;
     } else {
         vd_printf("reload window animation: fail %lu", GetLastError());
         return false;
