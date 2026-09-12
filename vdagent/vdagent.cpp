@@ -725,8 +725,10 @@ bool VDAgent::handle_mon_config(const VDAgentMonitorsConfig* mon_config, uint32_
     }
 
     _updating_display_config = false;
-    /* refresh again, in case something else changed */
-    _desktop_layout->get_displays();
+    /* Refresh after a change: WM_DISPLAYCHANGE is ignored while updating. */
+    if (update_displays) {
+        _desktop_layout->get_displays();
+    }
 
     DWORD msg_size = VD_MESSAGE_HEADER_SIZE + sizeof(VDAgentReply);
     reply_chunk = new_chunk(msg_size);
@@ -747,24 +749,36 @@ bool VDAgent::handle_mon_config(const VDAgentMonitorsConfig* mon_config, uint32_
     return true;
 }
 
+static bool spice_webdav_drive_matches(const std::wstring& drive, const wchar_t *spice_folder)
+{
+    wchar_t remote[MAX_PATH];
+    DWORD size = SPICE_N_ELEMENTS(remote);
+
+    return WNetGetConnection(drive.c_str(), remote, &size) == NO_ERROR &&
+           _wcsicmp(remote, spice_folder) == 0;
+}
+
 static std::wstring spice_webdav_get_drive_letter()
 {
-    std::wstring drive(L"Z:");
+    static std::wstring cached;
     static const wchar_t spice_folder[] = L"\\\\localhost@9843\\DavWWWRoot";
-    wchar_t remote[MAX_PATH];
 
+    if (!cached.empty() && spice_webdav_drive_matches(cached, spice_folder)) {
+        return cached;
+    }
+    cached.clear();
+
+    std::wstring drive(L"Z:");
     DWORD drives = GetLogicalDrives();
 
     /* spice-webdavd assigns drive letter from the end of the alphabet */
     for (int i = 25; i >= 0; i--) {
         int mask = 1 << i;
         if (drives & mask) {
-            drive[0] = 'A' + i;
-            DWORD size = SPICE_N_ELEMENTS(remote);
-
-            if (WNetGetConnection(drive.c_str(), remote, &size) == NO_ERROR &&
-                _wcsicmp(remote, spice_folder) == 0) {
-                return drive;
+            drive[0] = L'A' + i;
+            if (spice_webdav_drive_matches(drive, spice_folder)) {
+                cached = drive;
+                return cached;
             }
         }
     }
@@ -1020,6 +1034,21 @@ static const uint16_t supported_caps[] = {
     VD_AGENT_CAP_FILE_XFER_DETAILED_ERRORS,
 };
 
+static void log_capabilities(const char *prefix, const uint32_t *caps, uint32_t caps_size)
+{
+    char words[256];
+    size_t pos = 0;
+    words[0] = '\0';
+    for (uint32_t i = 0; i < caps_size && pos + 9 < sizeof(words); ++i) {
+        int n = snprintf(words + pos, sizeof(words) - pos,
+                         "%s%X", i ? " " : "", caps[i]);
+        if (n <= 0)
+            break;
+        pos += (size_t)n;
+    }
+    vd_printf("%s (%u): %s", prefix, caps_size, words);
+}
+
 bool VDAgent::send_announce_capabilities(bool request)
 {
     DWORD msg_size;
@@ -1048,10 +1077,7 @@ bool VDAgent::send_announce_capabilities(bool request)
     for (auto cap : supported_caps) {
         VD_AGENT_SET_CAPABILITY(caps->caps, cap);
     }
-    vd_printf("Sending capabilities:");
-    for (uint32_t i = 0 ; i < caps_size; ++i) {
-        vd_printf("%X", caps->caps[i]);
-    }
+    log_capabilities("Sending capabilities", caps->caps, caps_size);
     enqueue_chunk(caps_chunk);
     return true;
 }
@@ -1061,10 +1087,7 @@ bool VDAgent::handle_announce_capabilities(const VDAgentAnnounceCapabilities* an
 {
     uint32_t caps_size = VD_AGENT_CAPS_SIZE_FROM_MSG_SIZE(msg_size);
 
-    vd_printf("Got capabilities (%d)", caps_size);
-    for (uint32_t i = 0 ; i < caps_size; ++i) {
-        vd_printf("%X", announce_capabilities->caps[i]);
-    }
+    log_capabilities("Got capabilities", announce_capabilities->caps, caps_size);
     _client_caps.resize(caps_size);
     memcpy(_client_caps.data(), announce_capabilities->caps, sizeof(uint32_t) * caps_size);
 
