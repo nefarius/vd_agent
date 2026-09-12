@@ -1,4 +1,4 @@
-# Spice VD Agent for Windows
+# <img src="assets/logo.png" align="left" />Spice VD Agent for Windows
 
 Community-maintained Windows guest agent for [SPICE](https://www.spice-space.org/).
 This repository is a public mirror of the abandoned
