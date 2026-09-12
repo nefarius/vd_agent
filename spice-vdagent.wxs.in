@@ -29,10 +29,13 @@
     <Property Id="ARPNOMODIFY" Value="1"/>
     <Property Id="ARPNOREPAIR" Value="1"/>
     <Upgrade Id="$(var.UpgradeCode)">
-      <UpgradeVersion Minimum="$(var.Version)" IncludeMinimum="yes" OnlyDetect="yes"
+      <UpgradeVersion Minimum="$(var.Version)" IncludeMinimum="no" OnlyDetect="yes"
                       Property="NEWERVERSIONDETECTED"/>
+      <!-- IncludeMaximum lets a rebuild of the same version upgrade itself;
+           Product Id="*" mints a fresh ProductCode on every build. -->
       <UpgradeVersion Minimum="0.0.0" Maximum="$(var.Version)"
-                      IncludeMinimum="yes" IncludeMaximum="no"
+                      IncludeMinimum="yes" IncludeMaximum="yes"
+                      MigrateFeatures="yes"
                       Property="OLDERVERSIONBEINGUPGRADED"/>
     </Upgrade>
     <Condition Message="A newer version of [ProductName] is already installed.">
@@ -43,8 +46,12 @@
           <![CDATA[Not VersionNT64]]>
       </Condition>
     <?endif?>
+    <!-- Must stay ahead of InstallInitialize. Scheduled any later, the old
+         product is removed after costing has already decided the shared
+         components need no work, so its uninstall drops their refcount to zero
+         and deletes the files this package was supposed to keep. -->
     <InstallExecuteSequence>
-      <RemoveExistingProducts After="InstallInitialize"/>
+      <RemoveExistingProducts After="InstallValidate"/>
     </InstallExecuteSequence>
 
     <Directory Id="TARGETDIR" Name="SourceDir">
@@ -52,10 +59,12 @@
         <Directory Id="INSTALLDIR" Name="$(env.INSTALLDIRECTORY)">
           <Directory Id="Dbindir" Name="$(env.BINDIRECTORY)">
             <Component Id="CSpiceAgent" Guid="936F0100-D205-429B-A92A-2E490ADC5964" Win64="$(var.Win64)">
-              <File Id='spiceagent' Name='vdagent.exe' DiskId='1' Source='vdagent.exe' KeyPath='yes'/>
+              <File Id='spiceagent' Name='vdagent.exe' DiskId='1' Source='vdagent.exe' KeyPath='yes'
+                    DefaultVersion='@RC_FILEVERSION@'/>
             </Component>
             <Component Id="CSpiceService" Guid="7E64FC9B-458B-4AE3-BE92-9D4304B682E9" Win64="$(var.Win64)">
-              <File Id='spiceservice' Name='vdservice.exe' DiskId='1' Source='vdservice.exe' KeyPath='yes'/>
+              <File Id='spiceservice' Name='vdservice.exe' DiskId='1' Source='vdservice.exe' KeyPath='yes'
+                    DefaultVersion='@RC_FILEVERSION@'/>
               <ServiceInstall Id="ServiceInstall"
                             Name="spice-agent"
                             DisplayName="$(env.PRODUCT)"
