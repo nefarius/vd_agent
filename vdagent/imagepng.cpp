@@ -47,11 +47,9 @@ public:
         }
     };
 
-    size_t get_dib_size(const uint8_t *data, size_t size);
-    void get_dib_data(uint8_t *dib, const uint8_t *data, size_t size);
+    HANDLE create_dib_handle(const uint8_t *data, size_t size);
     void *from_bitmap(const BITMAPINFO& info, const void *bits, long &size);
 private:
-    size_t convert_to_dib(uint8_t *out_buf, const uint8_t *data, size_t size);
     ComPtr<IWICImagingFactory> factory;
 };
 
@@ -68,24 +66,19 @@ static void line_fixup_2bpp_to_4bpp(uint8_t *dst, const uint8_t *src,
     }
 }
 
-size_t PngCoder::get_dib_size(const uint8_t *data, size_t size)
-{
-    return convert_to_dib(NULL, data, size);
-}
-
-size_t PngCoder::convert_to_dib(uint8_t *out_buf, const uint8_t *data, size_t size)
+HANDLE PngCoder::create_dib_handle(const uint8_t *data, size_t size)
 {
     if (!factory)
-        return 0;
+        return NULL;
 
     if (size == 0 || size > MAXUINT)
-        return 0;
+        return NULL;
 
     ComPtr<IStream> stream;
     stream.Attach(SHCreateMemStream(data, static_cast<UINT>(size)));
     if (!stream) {
         vd_printf("failed to create PNG stream");
-        return 0;
+        return NULL;
     }
 
     ComPtr<IWICBitmapDecoder> decoder;
@@ -100,11 +93,11 @@ size_t PngCoder::convert_to_dib(uint8_t *out_buf, const uint8_t *data, size_t si
         FAILED(hr = frame->GetSize(&width, &height)) ||
         FAILED(hr = frame->GetPixelFormat(&format))) {
         log_hr("decode png", hr);
-        return 0;
+        return NULL;
     }
 
     if (width == 0 || height == 0)
-        return 0;
+        return NULL;
 
     auto out_format = IsEqualGUID(format, GUID_WICPixelFormat16bppGray) ?
                       GUID_WICPixelFormat8bppGray : format;
@@ -154,7 +147,7 @@ size_t PngCoder::convert_to_dib(uint8_t *out_buf, const uint8_t *data, size_t si
         !compute_dib_stride_checked(width, bits, &in_stride) ||
         !compute_image_size_checked(in_stride, height, &in_image_size)) {
         vd_printf("PNG dimensions overflow width=%u height=%u bits=%u", width, height, bits);
-        return 0;
+        return NULL;
     }
 
     DWORD out_num_colors = 0;
@@ -163,10 +156,23 @@ size_t PngCoder::convert_to_dib(uint8_t *out_buf, const uint8_t *data, size_t si
     const size_t palette_size = static_cast<size_t>(out_num_colors) * sizeof(RGBQUAD);
     const size_t dib_size = sizeof(BITMAPINFOHEADER) + palette_size + out_image_size;
     if (dib_size < sizeof(BITMAPINFOHEADER) || dib_size < out_image_size)
-        return 0;
+        return NULL;
 
-    if (!out_buf)
-        return dib_size;
+    HANDLE hmem = GlobalAlloc(GMEM_MOVEABLE, dib_size);
+    if (!hmem)
+        return NULL;
+    uint8_t *out_buf = (uint8_t *)GlobalLock(hmem);
+    if (!out_buf) {
+        GlobalFree(hmem);
+        return NULL;
+    }
+
+    auto release_dib = [&]() {
+        GlobalUnlock(hmem);
+        GlobalFree(hmem);
+        hmem = NULL;
+        out_buf = nullptr;
+    };
 
     BITMAPINFOHEADER& head(*(BITMAPINFOHEADER *)out_buf);
     memset(&head, 0, sizeof(head));
@@ -201,7 +207,8 @@ size_t PngCoder::convert_to_dib(uint8_t *out_buf, const uint8_t *data, size_t si
             FAILED(hr = frame->CopyPalette(palette.Get())) ||
             FAILED(hr = palette->GetColors(256, colors, &num_colors))) {
             log_hr("copy png palette", hr);
-            return 0;
+            release_dib();
+            return NULL;
         }
 
         for (DWORD i = 0; i < out_num_colors; ++i) {
@@ -223,7 +230,8 @@ size_t PngCoder::convert_to_dib(uint8_t *out_buf, const uint8_t *data, size_t si
     if (FAILED(hr) ||
         FAILED(hr = rotator->Initialize(frame.Get(), WICBitmapTransformFlipVertical))) {
         log_hr("flip png", hr);
-        return 0;
+        release_dib();
+        return NULL;
     }
 
     ComPtr<IWICFormatConverter> converter;
@@ -237,7 +245,8 @@ size_t PngCoder::convert_to_dib(uint8_t *out_buf, const uint8_t *data, size_t si
                                               WICBitmapDitherTypeNone, palette.Get(),
                                               0, WICBitmapPaletteTypeCustom))) {
             log_hr("convert png format", hr);
-            return 0;
+            release_dib();
+            return NULL;
         }
         source = converter.Get();
     }
@@ -246,7 +255,8 @@ size_t PngCoder::convert_to_dib(uint8_t *out_buf, const uint8_t *data, size_t si
     hr = source->CopyPixels(nullptr, in_stride, in_image_size, dst);
     if (FAILED(hr)) {
         log_hr("copy png pixels", hr);
-        return 0;
+        release_dib();
+        return NULL;
     }
 
     if (line_fixup) {
@@ -260,12 +270,8 @@ size_t PngCoder::convert_to_dib(uint8_t *out_buf, const uint8_t *data, size_t si
         }
     }
 
-    return dib_size;
-}
-
-void PngCoder::get_dib_data(uint8_t *dib, const uint8_t *data, size_t size)
-{
-    convert_to_dib(dib, data, size);
+    GlobalUnlock(hmem);
+    return hmem;
 }
 
 void *PngCoder::from_bitmap(const BITMAPINFO& bmp_info, const void *bits, long &size)

@@ -47,21 +47,7 @@ HANDLE get_image_handle(const VDAgentClipboard& clipboard, uint32_t size, UINT& 
     }
 
     format = CF_DIB;
-    size_t dib_size = coder->get_dib_size(clipboard.data, size);
-    if (!dib_size) {
-        return NULL;
-    }
-    HANDLE clip_data = GlobalAlloc(GMEM_MOVEABLE, dib_size);
-    if (clip_data) {
-        uint8_t* dst = (uint8_t*)GlobalLock(clip_data);
-        if (!dst) {
-            GlobalFree(clip_data);
-            return NULL;
-        }
-        coder->get_dib_data(dst, clipboard.data, size);
-        GlobalUnlock(clip_data);
-    }
-    return clip_data;
+    return coder->create_dib_handle(clipboard.data, size);
 }
 
 void* get_raw_clipboard_image(const VDAgentClipboardRequest& clipboard_request,
@@ -152,23 +138,30 @@ class BitmapCoder: public ImageCoder
 {
 public:
     BitmapCoder() {};
-    size_t get_dib_size(const uint8_t *data, size_t size);
-    void get_dib_data(uint8_t *dib, const uint8_t *data, size_t size);
+    HANDLE create_dib_handle(const uint8_t *data, size_t size);
     void *from_bitmap(const BITMAPINFO& info, const void *bits, long &size);
 };
 
-size_t BitmapCoder::get_dib_size(const uint8_t *data, size_t size)
-{
-    if (memcmp(data, "BM", 2) == 0)
-        return size > 14 ? size - 14 : 0;
-    return size;
-}
-
-void BitmapCoder::get_dib_data(uint8_t *dib, const uint8_t *data, size_t size)
+HANDLE BitmapCoder::create_dib_handle(const uint8_t *data, size_t size)
 {
     // just strip the file header if present, images can be either BMP or DIB
-    size_t new_size = get_dib_size(data, size);
-    memcpy(dib, data + (size - new_size), new_size);
+    size_t header = (size >= 2 && memcmp(data, "BM", 2) == 0) ? 14 : 0;
+    if (size <= header)
+        return NULL;
+
+    const size_t dib_size = size - header;
+    HANDLE clip_data = GlobalAlloc(GMEM_MOVEABLE, dib_size);
+    if (!clip_data)
+        return NULL;
+
+    uint8_t *dst = (uint8_t *)GlobalLock(clip_data);
+    if (!dst) {
+        GlobalFree(clip_data);
+        return NULL;
+    }
+    memcpy(dst, data + header, dib_size);
+    GlobalUnlock(clip_data);
+    return clip_data;
 }
 
 void *BitmapCoder::from_bitmap(const BITMAPINFO& info, const void *bits, long &size)

@@ -72,19 +72,21 @@ int main(int argc, char **argv)
     assert(fread(&data[0], 1, len, f) == (unsigned long) len);
     fclose(f);
 
-    size_t dib_size = coder->get_dib_size(&data[0], len);
-    assert(dib_size);
-    std::vector<uint8_t> out(dib_size);
-    memset(&out[0], 0xcc, dib_size);
-    coder->get_dib_data(&out[0], &data[0], len);
+    HANDLE dib_handle = coder->create_dib_handle(&data[0], len);
+    assert(dib_handle);
+    uint8_t *dib = (uint8_t *)GlobalLock(dib_handle);
+    assert(dib);
 
     // write BMP file
     std::unique_ptr<ImageCoder> bmp_coder(create_bitmap_coder());
     assert(bmp_coder);
-    save_dib_to_file(*bmp_coder, &out[0], argc > 2 ? argv[2] : "out.bmp");
+    save_dib_to_file(*bmp_coder, dib, argc > 2 ? argv[2] : "out.bmp");
 
     // convert back to PNG
-    save_dib_to_file(*coder, &out[0], argc > 3 ? argv[3] : "out.png");
+    save_dib_to_file(*coder, dib, argc > 3 ? argv[3] : "out.png");
+
+    GlobalUnlock(dib_handle);
+    GlobalFree(dib_handle);
 
     CoUninitialize();
     return 0;

@@ -23,8 +23,7 @@ class ImageCoder
 public:
     ImageCoder() {};
     virtual ~ImageCoder() {}
-    virtual size_t get_dib_size(const uint8_t *data, size_t size)=0;
-    virtual void get_dib_data(uint8_t *dib, const uint8_t *data, size_t size)=0;
+    virtual HANDLE create_dib_handle(const uint8_t *data, size_t size)=0;
     virtual void *from_bitmap(const BITMAPINFO& info, const void *bits, long &size)=0;
 private:
     ImageCoder(const ImageCoder& rhs);
