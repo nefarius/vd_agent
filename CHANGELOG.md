@@ -1,3 +1,15 @@
+unreleased
+==========
+- Fix a major upgrade wiping the installation: removing the previous MSI after
+  InstallInitialize ran once costing had already decided the shared components
+  needed no work, so the old package's uninstall deleted vdagent.exe,
+  vdservice.exe and the spice-agent service, leaving only an Add/Remove
+  Programs entry until the MSI was run a second time
+- Record the binary file version in the MSI File table; wixl does not read the
+  PE version resource, so Windows Installer had no version data to compare
+- Migrate feature states on upgrade and allow a rebuild of the same version to
+  replace an existing install
+
 v0.11.0
 =======
 - Replace libpng/zlib with the Windows Imaging Component for PNG clipboard

@@ -27,7 +27,9 @@ fi
 # is major.minor.build; Windows Installer limits major and minor to 0-255 and
 # build to 0-65535. Encode build = micro * 256 + distance + buildid so an
 # untagged 0.11.0.N upgrades 0.11.0. distance+buildid must stay below 256 or
-# it collides with the next micro (0.11.0 + 256 commits == tagged 0.11.1).
+# it collides with the next micro (0.11.0 + 256 commits == tagged 0.11.1). The
+# binary and MSI file versions reuse the same distance+buildid slot so they
+# never stay flat while ProductVersion moves.
 major=`echo "$PACKAGE_VERSION" | cut -d. -f1`
 minor=`echo "$PACKAGE_VERSION" | cut -d. -f2`
 micro=`echo "$PACKAGE_VERSION" | cut -d. -f3 | cut -d- -f1`
@@ -73,9 +75,14 @@ if test "$build" -gt 65535; then
 fi
 WINDOWS_PRODUCTVERSION="$major.$minor.$build"
 AC_SUBST([WINDOWS_PRODUCTVERSION])
-RC_PRODUCTVERSION="$major, $minor, $micro, $distance"
+RC_PRODUCTVERSION="$major, $minor, $micro, $slot"
 AC_DEFINE_UNQUOTED([RC_PRODUCTVERSION_STR], "$RC_PRODUCTVERSION", [Resource product version])
 AC_DEFINE_UNQUOTED([RC_PRODUCTVERSION], [$RC_PRODUCTVERSION], [Resource product version])
+# wixl does not read the PE version resource, so the MSI File table needs the
+# same four fields spelled out. It must match VS_VERSION_INFO exactly or the
+# installer disagrees with the binaries on repair.
+RC_FILEVERSION="$major.$minor.$micro.$slot"
+AC_SUBST([RC_FILEVERSION])
 BUILD_YEAR=`date +%Y`
 AC_DEFINE_UNQUOTED([BUILD_YEAR], "$BUILD_YEAR", [Build year])
 RPM_VERSION=`echo $PACKAGE_VERSION | sed 's,-,_,g'`

@@ -40,8 +40,11 @@ Pinned build-time submodules (do not bump casually):
 
 Submodule URLs use HTTPS. MSI upgrades keep the historical WiX `UpgradeCode`
 (`7eb9b146-db04-42d7-a8ba-71fc8ced7eed`). Related products are removed after
-`InstallInitialize` so files and the `spice-agent` service are installed
-afterward. The x64 installer still only ships `vdagent.exe` and
+`InstallValidate`, before the install transaction begins, so the shared
+components are recopied instead of being deleted by the old package's
+uninstall. Because `wixl` does not read the PE version resource, the `File`
+table gets `RC_FILEVERSION` explicitly; keep it identical to the four fields in
+`VS_VERSION_INFO`. The x64 installer still only ships `vdagent.exe` and
 `vdservice.exe` into `C:\Program Files\SPICE agent\bin`.
 
 ## Clone
