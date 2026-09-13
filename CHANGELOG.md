@@ -1,5 +1,8 @@
 unreleased
 ==========
+
+v0.13.0
+=======
 - Fix a major upgrade wiping the installation: removing the previous MSI after
   InstallInitialize ran once costing had already decided the shared components
   needed no work, so the old package's uninstall deleted vdagent.exe,
@@ -9,6 +12,14 @@ unreleased
   PE version resource, so Windows Installer had no version data to compare
 - Migrate feature states on upgrade and allow a rebuild of the same version to
   replace an existing install
+
+v0.12.0
+=======
+- Harden display, clipboard, and file-xfer error paths: recover more
+  cleanly from display-setting failures, reject invalid clipboard images,
+  and close file-transfer leaks
+- Avoid a second PNG decode on clipboard conversion and skip extra display
+  refresh work when the monitor layout has not changed
 
 v0.11.0
 =======
