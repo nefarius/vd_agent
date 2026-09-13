@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Changelog updates
 
-When a change is release-relevant, update the root [`CHANGELOG.md`](CHANGELOG.md)
+When a change is release-relevant, update the root [`CHANGELOG.md`](../../CHANGELOG.md)
 in the same change. Add a concise bullet under the existing `unreleased`
 section. Match the current style: one user-facing sentence per bullet, no
 version bump, and no new heading.
