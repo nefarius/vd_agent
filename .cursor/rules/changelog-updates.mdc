@@ -1,0 +1,32 @@
+---
+description: Update CHANGELOG.md for release-relevant product changes
+alwaysApply: true
+---
+
+# Changelog updates
+
+When a change is release-relevant, update the root [`CHANGELOG.md`](CHANGELOG.md)
+in the same change. Add a concise bullet under the existing `unreleased`
+section. Match the current style: one user-facing sentence per bullet, no
+version bump, and no new heading.
+
+Do not edit vendored submodule changelogs such as
+`spice-protocol/CHANGELOG.md`.
+
+## Update when
+
+- User-visible features or behavior changes
+- Bug fixes that affect shipped binaries or the installer
+- Compatibility, upgrade, or security fixes
+- Other changes that belong in release notes
+
+## Skip when
+
+- Documentation-only edits (`README.md`, comments, assets used only in docs)
+- Tests-only or internal refactors with no shipped behavior change
+- CI, packaging-script, or deploy/release automation that does not change
+  the product users install
+- Agent instructions and Cursor rules (including this file)
+
+If a change mixes release-relevant and exempt work, still add a changelog
+entry for the release-relevant part.
